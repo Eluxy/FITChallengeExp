@@ -10,12 +10,15 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useMainPageViewModel } from "@/src/presentation/view-models/use-main-page-view-model";
 
 const COLORS = {
-  bg: "#FCE4B3",
-  cream: "#FFF5E1",
-  red: "#D33F24",
-  text: "#1A1A1A",
+  bg: "#EFD8A8",
+  cream: "#F7E9CC",
+  card: "#F6E8CB",
+  text: "#111111",
+  accent: "#F56735",
+  muted: "#8F8A82",
 } as const;
 
 const titleFont = Platform.select({
@@ -31,9 +34,11 @@ const MASCOT_OFFSET_Y = 45;
 export default function MainPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { stats, steps, calories, isLoading, error, isConnected, connectGoogleFit, refresh } =
+    useMainPageViewModel();
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
@@ -62,7 +67,7 @@ export default function MainPage() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.progressLabel}>ПРОГРЕСС 100%</Text>
+        <Text style={styles.progressLabel}>ПРОГРЕСС {stats.progressPercent}%</Text>
 
         <View style={styles.heroWrap}>
           <View style={styles.ring}>
@@ -93,7 +98,7 @@ export default function MainPage() {
             style={styles.statIcon}
           />
           <View style={styles.statBarTrack}>
-            <View style={[styles.statBarFill, { width: "100%" }]} />
+            <View style={[styles.statBarFill, { width: `${stats.stepsPercent}%` }]} />
           </View>
         </View>
         <View style={styles.statRow}>
@@ -104,17 +109,41 @@ export default function MainPage() {
             style={styles.statIcon}
           />
           <View style={styles.statBarTrack}>
-            <View style={[styles.statBarFill, { width: "100%" }]} />
+            <View
+              style={[styles.statBarFill, { width: `${stats.caloriesPercent}%` }]}
+            />
           </View>
+        </View>
+
+        <Text style={styles.liveText}>
+          {isConnected
+            ? `Сегодня: ${steps.toLocaleString("ru-RU")} шагов • ${calories.toLocaleString("ru-RU")} ккал`
+            : "Google Fit не подключен"}
+        </Text>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        <View style={styles.actionsRow}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={connectGoogleFit}
+            style={({ pressed }) => [styles.actionButton, pressed && styles.btnPressed]}
+          >
+            <Text style={styles.actionText}>
+              {isConnected ? "ПЕРЕПОДКЛЮЧИТЬ FIT" : "ПОДКЛЮЧИТЬ FIT"}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={refresh}
+            style={({ pressed }) => [styles.actionButton, pressed && styles.btnPressed]}
+          >
+            <Text style={styles.actionText}>{isLoading ? "ОБНОВЛЯЕМ..." : "ОБНОВИТЬ"}</Text>
+          </Pressable>
         </View>
 
         <Pressable
           accessibilityRole="button"
           onPress={() => router.push("/challenges_page")}
-          style={({ pressed }) => [
-            styles.btnPrimary,
-            pressed && styles.btnPressed,
-          ]}
+          style={({ pressed }) => [styles.btnPrimary, pressed && styles.btnPressed]}
         >
           <Text style={styles.btnText}>ЧЕЛЕНДЖИ</Text>
         </Pressable>
@@ -123,22 +152,16 @@ export default function MainPage() {
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push("/explore")}
-            style={({ pressed }) => [
-              styles.btnHalf,
-              pressed && styles.btnPressed,
-            ]}
+            style={({ pressed }) => [styles.btnHalf, pressed && styles.btnPressed]}
           >
             <Text style={styles.btnTextSmall}>ЛИДЕРБОРДЫ</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push("/account_page")}
-            style={({ pressed }) => [
-              styles.btnHalf,
-              pressed && styles.btnPressed,
-            ]}
+            onPress={() => router.push("/device_page")}
+            style={({ pressed }) => [styles.btnHalf, pressed && styles.btnPressed]}
           >
-            <Text style={styles.btnTextSmall}>ЗАСЛУГИ</Text>
+            <Text style={styles.btnTextSmall}>УСТРОЙСТВА</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -158,6 +181,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: COLORS.cream,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
   headerIconBtn: {
     width: 44,
@@ -197,7 +222,7 @@ const styles = StyleSheet.create({
     height: 240,
     borderRadius: 120,
     borderWidth: 22,
-    borderColor: COLORS.red,
+    borderColor: COLORS.accent,
     backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
@@ -222,13 +247,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 10,
     borderRadius: 5,
-    backgroundColor: `${COLORS.red}33`,
+    backgroundColor: "#E8D7B8",
     overflow: "hidden",
   },
   statBarFill: {
     height: "100%",
     borderRadius: 5,
-    backgroundColor: COLORS.red,
+    backgroundColor: COLORS.accent,
   },
   btnPrimary: {
     width: "100%",
@@ -237,7 +262,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 24,
     borderRadius: 18,
-    backgroundColor: COLORS.cream,
+    backgroundColor: COLORS.card,
     alignItems: "center",
     justifyContent: "center",
     ...Platform.select({
@@ -263,7 +288,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 12,
     borderRadius: 18,
-    backgroundColor: COLORS.cream,
+    backgroundColor: COLORS.card,
     alignItems: "center",
     justifyContent: "center",
     ...Platform.select({
@@ -283,17 +308,47 @@ const styles = StyleSheet.create({
   },
   btnText: {
     fontSize: 35,
-    fontWeight: "900",
-    letterSpacing: 1,
     color: COLORS.text,
     fontFamily: "Rimma_sans",
   },
   btnTextSmall: {
     fontSize: 20,
-    fontWeight: "900",
-    letterSpacing: 0.5,
+    color: COLORS.muted,
+    textAlign: "center",
+    fontFamily: "Rimma_sans",
+  },
+  liveText: {
+    marginTop: 10,
+    fontSize: 14,
     color: COLORS.text,
     textAlign: "center",
+    fontFamily: "Rimma_sans",
+  },
+  errorText: {
+    marginTop: 4,
+    fontSize: 13,
+    color: "#A4371D",
+    textAlign: "center",
+    fontFamily: "Rimma_sans",
+  },
+  actionsRow: {
+    width: "100%",
+    maxWidth: 360,
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  actionButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    backgroundColor: COLORS.cream,
+    alignItems: "center",
+  },
+  actionText: {
+    fontSize: 14,
+    color: COLORS.accent,
     fontFamily: "Rimma_sans",
   },
 });
