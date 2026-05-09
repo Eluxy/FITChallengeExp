@@ -12,6 +12,8 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.eluxy.FitApp",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -26,6 +28,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "@react-native-google-signin/google-signin",
       "expo-router",
       [
         "expo-splash-screen",
@@ -38,11 +41,19 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "53634761-1960-4c70-9025-ed27764506c5"
+      }
     }
   }
 }

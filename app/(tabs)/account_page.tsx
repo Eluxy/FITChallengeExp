@@ -1,26 +1,35 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAccountViewModel } from "@/src/presentation/view-models/use-account-view-model";
 
 const COLORS = {
-  bg: "#EAD4A6",
-  cream: "#F3E4C4",
-  creamDark: "#EEDDB9",
+  bg: "#EFD8A8",
+  cream: "#F7E9CC",
+  card: "#F6E8CB",
   text: "#111111",
-  accent: "#D33F24",
+  accent: "#F56735",
+  muted: "#8F8A82",
 } as const;
 
 export default function AccountPage() {
   const insets = useSafeAreaInsets();
+  const { profile } = useAccountViewModel();
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
+    <ScrollView
+      style={[styles.root, { paddingTop: insets.top + 8 }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.headerCard}>
+        <MaterialCommunityIcons name="account-circle-outline" size={26} color={COLORS.text} />
         <Text style={styles.headerTitle}>АККАУНТ</Text>
+        <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.text} />
       </View>
 
-      <View style={styles.avatarWrap}>
+      <View style={styles.profileCard}>
         <View style={styles.avatarCircle}>
           <Image
             accessibilityIgnoresInvertColors
@@ -29,62 +38,66 @@ export default function AccountPage() {
             style={styles.avatarImage}
           />
         </View>
-      </View>
 
-      <Text style={styles.name}>NAME</Text>
+        <Text style={styles.name}>{profile.name}</Text>
 
-      <View style={styles.metricsRow}>
-        <Text style={styles.metricLabel}>AGE: </Text>
-        <Text style={styles.metricValue}>20</Text>
-      </View>
-      <View style={styles.metricsRow}>
-        <Text style={styles.metricLabel}>HEIGHT: </Text>
-        <Text style={styles.metricValue}>175</Text>
-        <Text style={styles.metricLabel}> | WEIGHT: </Text>
-        <Text style={styles.metricValue}>72</Text>
+        <View style={styles.metricsWrap}>
+          <View style={styles.metricItem}>
+            <Text style={styles.metricLabel}>ВОЗРАСТ</Text>
+            <Text style={styles.metricValue}>{profile.age}</Text>
+          </View>
+          <View style={styles.metricItem}>
+            <Text style={styles.metricLabel}>РОСТ</Text>
+            <Text style={styles.metricValue}>{profile.heightCm}</Text>
+          </View>
+          <View style={styles.metricItem}>
+            <Text style={styles.metricLabel}>ВЕС</Text>
+            <Text style={styles.metricValue}>{profile.weightKg}</Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.menuCard}>
-        <View style={styles.menuRow}>
+        <Pressable style={styles.menuRow}>
           <MaterialCommunityIcons
             name="cog-outline"
-            size={20}
+            size={22}
             color={COLORS.accent}
             style={styles.menuIcon}
           />
           <Text style={styles.menuText}>НАСТРОЙКИ</Text>
-        </View>
-        <View style={styles.menuRow}>
+        </Pressable>
+        <Pressable style={styles.menuRow}>
           <MaterialCommunityIcons
             name="account-group-outline"
-            size={20}
+            size={22}
             color={COLORS.accent}
             style={styles.menuIcon}
           />
           <Text style={styles.menuText}>ТОВАРИЩИ</Text>
-        </View>
-        <View style={styles.menuRow}>
+        </Pressable>
+        <Pressable style={styles.menuRow}>
           <MaterialCommunityIcons
             name="trophy-outline"
-            size={20}
+            size={22}
             color={COLORS.accent}
             style={styles.menuIcon}
           />
           <Text style={styles.menuText}>ЛИДЕРБОРДЫ</Text>
-        </View>
-        <View style={styles.menuRow}>
+        </Pressable>
+        <Pressable style={styles.menuRow}>
           <MaterialCommunityIcons
             name="medal-outline"
-            size={20}
+            size={22}
             color={COLORS.accent}
             style={styles.menuIcon}
           />
           <Text style={styles.menuText}>ДОСТИЖЕНИЯ</Text>
-        </View>
+        </Pressable>
       </View>
 
-      <View style={styles.bottomCard} />
-    </View>
+      <View style={styles.placeholderCard} />
+    </ScrollView>
   );
 }
 
@@ -92,109 +105,101 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.bg,
-    alignItems: "center",
+  },
+  content: {
+    paddingHorizontal: 18,
+    paddingBottom: 28,
+    gap: 14,
   },
   headerCard: {
-    width: "100%",
-    backgroundColor: COLORS.creamDark,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    paddingVertical: 14,
+    backgroundColor: COLORS.cream,
+    borderRadius: 18,
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.12,
-        shadowRadius: 5,
-      },
-      android: {
-        elevation: 4,
-      },
-      default: {},
-    }),
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
   headerTitle: {
-    fontSize: 40,
+    fontSize: 34,
     color: COLORS.text,
-    letterSpacing: 1,
     fontFamily: "Rimma_sans",
   },
-  avatarWrap: {
-    marginTop: 22,
-    marginBottom: 10,
+  profileCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 24,
+    paddingVertical: 18,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 7,
   },
   avatarCircle: {
-    width: 158,
-    height: 158,
-    borderRadius: 79,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
     backgroundColor: COLORS.cream,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarImage: {
-    width: 110,
-    height: 110,
+    width: 90,
+    height: 90,
   },
   name: {
-    fontSize: 40,
+    fontSize: 38,
     color: COLORS.text,
     fontFamily: "Rimma_sans",
-    marginTop: 2,
-    lineHeight: 62,
+    marginTop: 8,
   },
-  metricsRow: {
+  metricsWrap: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
+    width: "100%",
+    justifyContent: "space-evenly",
+    marginTop: 14,
   },
+  metricItem: { alignItems: "center" },
   metricLabel: {
-    fontSize: 20,
-    color: COLORS.text,
+    fontSize: 14,
+    color: COLORS.muted,
     fontFamily: "Rimma_sans",
   },
   metricValue: {
-    fontSize: 20,
+    fontSize: 28,
     color: COLORS.accent,
     fontFamily: "Rimma_sans",
   },
   menuCard: {
-    marginTop: 16,
-    width: "78%",
-    backgroundColor: COLORS.cream,
-    borderRadius: 18,
-    paddingVertical: 16,
+    backgroundColor: COLORS.card,
+    borderRadius: 24,
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    gap: 7,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 7,
   },
   menuRow: {
     flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 9,
   },
   menuIcon: {
-    width: 28,
+    width: 30,
     textAlign: "center",
-    marginRight: 6,
-  },
-  menuIconSpacer: {
-    width: 34,
+    marginRight: 8,
   },
   menuText: {
-    fontSize: 25,
+    fontSize: 28,
     color: COLORS.text,
     fontFamily: "Rimma_sans",
-    lineHeight: 40,
   },
-  bottomCard: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 58,
-    backgroundColor: COLORS.creamDark,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+  placeholderCard: {
+    height: 70,
+    borderRadius: 18,
+    backgroundColor: COLORS.cream,
   },
 });
