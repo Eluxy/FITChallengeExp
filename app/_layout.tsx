@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   DarkTheme,
   DefaultTheme,
@@ -8,6 +9,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
 import "react-native-reanimated";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
@@ -22,6 +24,12 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Rimma_sans: require("../assets/fonts/RIMMA_SANS-BOLD.ttf"),
   });
+
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    });
+  }, []);
 
   if (!fontsLoaded) {
     return null;
