@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
 import * as Google from "expo-auth-session/providers/google";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
-  fetchGoogleFitSummary,
-  type GoogleFitSummary,
+    fetchGoogleFitSummary,
+    type GoogleFitSummary,
 } from "@/src/data/google-fit/fetch-google-fit-summary";
 
 type WeekRange = {
@@ -51,11 +51,14 @@ export function useGoogleFitStatsViewModel() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const weekRange = useMemo(() => getCurrentWeekRange(), []);
 
+  const redirectUri = "com.eluxy.FitApp:/oauthredirect";
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     scopes: GOOGLE_FIT_SCOPES,
+    redirectUri,
   });
 
   const loadStats = useCallback(

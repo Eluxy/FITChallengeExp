@@ -15,40 +15,19 @@
       },
       "oauth_client": [
         {
-          "client_id": "309719205466-hsbrrktpualuf01ifv2i45gt8dn2u3r0.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDLaw8EPrQ8ff9U1f0tWsed-iqCnABJpOI"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "309719205466-hsbrrktpualuf01ifv2i45gt8dn2u3r0.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:309719205466:android:ced69fae4abde4ea9cba63",
-        "android_client_info": {
-          "package_name": "com.example.fitapplication"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "309719205466-k2nedl4nqkhbu64ff0harakeoj7en93p.apps.googleusercontent.com",
+          "client_id": "309719205466-99g684q8rlohev0gjmsshhdvriau1hgi.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.example.fitapplication",
+            "package_name": "com.eluxy.FitApp",
             "certificate_hash": "c0b656f42378588ea6bf3beedc22dbf0a01859d6"
+          }
+        },
+        {
+          "client_id": "309719205466-no0p6eo5ir6gs5sdb0heqg8nveka99up.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.eluxy.FitApp",
+            "certificate_hash": "7091f87de522c05d6ab6844920edd84cfb535c78"
           }
         },
         {

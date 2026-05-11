@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
 import * as Google from "expo-auth-session/providers/google";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type { DashboardStats } from "@/src/domain/entities/dashboard";
 import { upsertDailyProgress } from "@/src/data/firebase/firestore-rest";
 import { fetchGoogleFitSummary } from "@/src/data/google-fit/fetch-google-fit-summary";
+import type { DashboardStats } from "@/src/domain/entities/dashboard";
 
 const DEFAULT_STATS: DashboardStats = {
   progressPercent: 0,
@@ -46,11 +46,14 @@ export function useMainPageViewModel() {
     [],
   );
 
+  const redirectUri = "com.eluxy.FitApp:/oauthredirect";
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     scopes: GOOGLE_FIT_SCOPES,
+    redirectUri,
   });
 
   const saveTodayProgress = useCallback(
@@ -110,6 +113,7 @@ export function useMainPageViewModel() {
   );
 
   useEffect(() => {
+    console.log("AUTH RESPONSE:", JSON.stringify(response));
     if (response?.type !== "success") {
       return;
     }

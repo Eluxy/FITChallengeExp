@@ -1,19 +1,18 @@
-import { useEffect } from "react";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
+    DarkTheme,
+    DefaultTheme,
+    ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import * as WebBrowser from "expo-web-browser";
+import { useEffect } from "react";
 import "react-native-reanimated";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
-WebBrowser.maybeCompleteAuthSession();
+// WebBrowser.maybeCompleteAuthSession();
 
 export const unstable_settings = {
   anchor: "(tabs)",
