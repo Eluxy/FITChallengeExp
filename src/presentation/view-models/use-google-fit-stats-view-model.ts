@@ -1,4 +1,3 @@
-import * as Google from "expo-auth-session/providers/google";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -51,15 +50,13 @@ export function useGoogleFitStatsViewModel() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const weekRange = useMemo(() => getCurrentWeekRange(), []);
 
-  const redirectUri = "com.eluxy.FitApp:/oauthredirect";
-
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    scopes: GOOGLE_FIT_SCOPES,
-    redirectUri,
-  });
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      scopes: GOOGLE_FIT_SCOPES,
+      offlineAccess: true,
+    });
+  }, []);
 
   const loadStats = useCallback(
     async (token: string) => {
@@ -83,30 +80,30 @@ export function useGoogleFitStatsViewModel() {
     [weekRange.endTimeMillis, weekRange.startTimeMillis],
   );
 
-  useEffect(() => {
-    if (response?.type !== "success") {
-      return;
-    }
-
-    const token = response.authentication?.accessToken;
-    if (!token) {
-      setError("Google авторизация не вернула access token");
-      return;
-    }
-
-    setAccessToken(token);
-    void loadStats(token);
-  }, [loadStats, response]);
-
   const connectGoogleFit = useCallback(async () => {
-    if (!request) {
-      setError("OAuth не настроен. Проверь EXPO_PUBLIC_GOOGLE_*_CLIENT_ID");
-      return;
-    }
-
     setError(null);
-    await promptAsync();
-  }, [promptAsync, request]);
+    setIsLoading(true);
+
+    try {
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      
+      const tokens = await GoogleSignin.getTokens();
+      const token = tokens.accessToken;
+
+      if (!token) {
+        setError("Не удалось получить токен доступа");
+        setIsLoading(false);
+        return;
+      }
+
+      setAccessToken(token);
+      await loadStats(token);
+    } catch (err: any) {
+      setError(err.message || "Ошибка авторизации Google");
+      setIsLoading(false);
+    }
+  }, [loadStats]);
 
   const refresh = useCallback(async () => {
     if (!accessToken) {

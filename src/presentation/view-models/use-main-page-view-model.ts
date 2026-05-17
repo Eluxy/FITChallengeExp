@@ -1,4 +1,3 @@
-import * as Google from "expo-auth-session/providers/google";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { upsertDailyProgress } from "@/src/data/firebase/firestore-rest";
@@ -46,15 +45,30 @@ export function useMainPageViewModel() {
     [],
   );
 
-  const redirectUri = "com.eluxy.FitApp:/oauthredirect";
+  const connectGoogleFit = useCallback(async () => {
+    setError(null);
+    setIsLoading(true);
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    scopes: GOOGLE_FIT_SCOPES,
-    redirectUri,
-  });
+    try {
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      
+      const tokens = await GoogleSignin.getTokens();
+      const token = tokens.accessToken;
+
+      if (!token) {
+        setError("Не удалось получить токен доступа");
+        setIsLoading(false);
+        return;
+      }
+
+      setAccessToken(token);
+      await loadTodayStats(token);
+    } catch (err: any) {
+      setError(err.message || "Ошибка авторизации Google");
+      setIsLoading(false);
+    }
+  }, []);
 
   const saveTodayProgress = useCallback(
     async (nextSteps: number, nextCalories: number, nextProgressPercent: number) => {
@@ -113,20 +127,12 @@ export function useMainPageViewModel() {
   );
 
   useEffect(() => {
-    console.log("AUTH RESPONSE:", JSON.stringify(response));
-    if (response?.type !== "success") {
-      return;
-    }
-
-    const token = response.authentication?.accessToken;
-    if (!token) {
-      setError("Google авторизация не вернула access token");
-      return;
-    }
-
-    setAccessToken(token);
-    void loadTodayStats(token);
-  }, [loadTodayStats, response]);
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      scopes: GOOGLE_FIT_SCOPES,
+      offlineAccess: true,
+    });
+  }, []);
 
   useEffect(() => {
     if (!accessToken) {
@@ -139,16 +145,6 @@ export function useMainPageViewModel() {
 
     return () => clearInterval(interval);
   }, [accessToken, loadTodayStats]);
-
-  const connectGoogleFit = useCallback(async () => {
-    if (!request) {
-      setError("OAuth не настроен. Проверь EXPO_PUBLIC_GOOGLE_*_CLIENT_ID");
-      return;
-    }
-
-    setError(null);
-    await promptAsync();
-  }, [promptAsync, request]);
 
   const refresh = useCallback(async () => {
     if (!accessToken) {

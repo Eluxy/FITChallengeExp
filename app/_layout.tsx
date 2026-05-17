@@ -1,4 +1,3 @@
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import {
     DarkTheme,
     DefaultTheme,
@@ -7,12 +6,9 @@ import {
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
 import "react-native-reanimated";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
-
-// WebBrowser.maybeCompleteAuthSession();
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -23,12 +19,6 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Rimma_sans: require("../assets/fonts/RIMMA_SANS-BOLD.ttf"),
   });
-
-  useEffect(() => {
-    GoogleSignin.configure({
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    });
-  }, []);
 
   if (!fontsLoaded) {
     return null;
