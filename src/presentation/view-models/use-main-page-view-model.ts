@@ -1,3 +1,4 @@
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { upsertDailyProgress } from "@/src/data/firebase/firestore-rest";
@@ -50,21 +51,34 @@ export function useMainPageViewModel() {
     setIsLoading(true);
 
     try {
+      console.log("🔵 Checking Play Services...");
       await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
+      console.log("✅ Play Services OK");
       
+      console.log("🔵 Starting Google Sign In...");
+      const userInfo = await GoogleSignin.signIn();
+      console.log("✅ Sign In successful:", userInfo.data?.user?.email);
+      
+      console.log("🔵 Getting tokens...");
       const tokens = await GoogleSignin.getTokens();
+      console.log("✅ Tokens received");
+      
       const token = tokens.accessToken;
 
       if (!token) {
+        console.log("❌ No access token");
         setError("Не удалось получить токен доступа");
         setIsLoading(false);
         return;
       }
 
+      console.log("✅ Access token OK, loading stats...");
       setAccessToken(token);
       await loadTodayStats(token);
     } catch (err: any) {
+      console.log("❌ Error:", err);
+      console.log("Error code:", err.code);
+      console.log("Error message:", err.message);
       setError(err.message || "Ошибка авторизации Google");
       setIsLoading(false);
     }
@@ -127,11 +141,16 @@ export function useMainPageViewModel() {
   );
 
   useEffect(() => {
+    console.log("🔧 Configuring GoogleSignin...");
+    console.log("Web Client ID:", process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID);
+    
     GoogleSignin.configure({
       webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
       scopes: GOOGLE_FIT_SCOPES,
       offlineAccess: true,
     });
+    
+    console.log("✅ GoogleSignin configured");
   }, []);
 
   useEffect(() => {
