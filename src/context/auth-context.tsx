@@ -3,6 +3,8 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
+  signInWithCredential,
+  GoogleAuthProvider,
   signOut as firebaseSignOut,
   type User as FirebaseUser,
   onAuthStateChanged,
@@ -84,17 +86,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const currentUser = await GoogleSignin.getCurrentUser();
       if (currentUser) {
         const user = (currentUser as any).user ?? currentUser;
-        setUserInfo({
-          email: user.email || "",
-          name: user.name || user.email || "Пользователь",
-          photo: user.photo || undefined,
-        });
 
+        // Firebase Auth уже должен быть залогинен через onAuthStateChanged
         const tokens = await GoogleSignin.getTokens();
         const token = tokens.accessToken;
         if (token) {
           setAccessToken(token);
-          setIsConnected(true);
           setAuthMethod("google");
         }
       }
@@ -112,6 +109,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const signInResult = await GoogleSignin.signIn();
 
       const user = signInResult.data?.user;
+      const idToken = signInResult.data?.idToken;
+
+      if (!idToken) {
+        setError("Не удалось получить idToken от Google");
+        setIsLoading(false);
+        return;
+      }
+
+      const tokens = await GoogleSignin.getTokens();
+      const accessToken = tokens.accessToken;
+
+      if (!accessToken) {
+        setError("Не удалось получить токен доступа");
+        setIsLoading(false);
+        return;
+      }
+
+      // Линкуем Google-вход с Firebase Auth
+      const auth = getFirebaseAuth();
+      const credential = GoogleAuthProvider.credential(idToken);
+      await signInWithCredential(auth, credential);
+
       if (user) {
         setUserInfo({
           email: user.email || "",
@@ -120,16 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      const tokens = await GoogleSignin.getTokens();
-      const token = tokens.accessToken;
-
-      if (!token) {
-        setError("Не удалось получить токен доступа");
-        setIsLoading(false);
-        return;
-      }
-
-      setAccessToken(token);
+      setAccessToken(accessToken);
       setIsConnected(true);
       setAuthMethod("google");
     } catch (err: any) {

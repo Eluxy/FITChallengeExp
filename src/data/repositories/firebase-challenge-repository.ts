@@ -6,14 +6,10 @@ import {
   getDoc,
   getDocs,
   query,
-  setDoc,
   updateDoc,
   where,
   orderBy,
-  Timestamp,
   addDoc,
-  serverTimestamp,
-  deleteDoc,
 } from "firebase/firestore";
 
 function challengeFromDoc(id: string, data: any): Challenge {
@@ -50,7 +46,7 @@ export class FirebaseChallengeRepository {
   }): Promise<string> {
     const auth = getFirebaseAuth();
     const user = auth.currentUser;
-    if (!user) throw new Error("Not authenticated");
+    if (!user) throw new Error("Вы не вошли в аккаунт. Войдите через Google или Email.");
 
     const challengeData = {
       title: params.title,
