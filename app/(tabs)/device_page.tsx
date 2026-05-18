@@ -1,6 +1,6 @@
 import { useAuth } from "@/src/context/auth-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
@@ -33,7 +33,12 @@ export default function DevicePage() {
       <View style={styles.header}>
         <MaterialCommunityIcons name="watch-variant" size={26} color={COLORS.text} />
         <Text style={styles.headerTitle}>УСТРОЙСТВА</Text>
-        <MaterialCommunityIcons name="plus-circle-outline" size={24} color={COLORS.text} />
+        <MaterialCommunityIcons
+          name="plus-circle-outline"
+          size={24}
+          color={COLORS.muted}
+          onPress={() => {}}
+        />
       </View>
 
       <View style={styles.card}>
@@ -51,13 +56,21 @@ export default function DevicePage() {
           </View>
         ) : (
           DEVICES.map((device) => (
-            <View key={device.id} style={styles.row}>
+            <Pressable
+              key={device.id}
+              style={styles.row}
+              onPress={() => {
+                if (device.name === "Xiaomi Mi Band") {
+                  // TODO: Bluetooth LE scanning
+                }
+              }}
+            >
               <View style={styles.left}>
                 <Text style={styles.deviceName}>{device.name}</Text>
                 <Text style={styles.deviceStatus}>{device.status}</Text>
               </View>
               <Text style={styles.battery}>{device.battery}</Text>
-            </View>
+            </Pressable>
           ))
         )}
       </View>
@@ -68,9 +81,14 @@ export default function DevicePage() {
           <Text style={styles.syncText}>
             Данные обновляются автоматически каждые 2 минуты
           </Text>
-          <View style={styles.syncButton}>
+          <Pressable
+            style={styles.syncButton}
+            onPress={() => {
+              // Симуляция синхронизации
+            }}
+          >
             <Text style={styles.syncButtonText}>GOOGLE FIT ПОДКЛЮЧЕН</Text>
-          </View>
+          </Pressable>
         </View>
       )}
     </ScrollView>

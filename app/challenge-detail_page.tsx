@@ -141,6 +141,20 @@ export default function ChallengeDetailPage() {
         </View>
       </View>
 
+      {(challenge.status === "active" || challenge.status === "completed") && (
+        <Pressable
+          style={styles.chatButton}
+          onPress={() => router.push({
+            pathname: "/chat_page",
+            params: { challengeId: challenge.id, challengeTitle: challenge.title }
+          })}
+        >
+          <MaterialCommunityIcons name="chat-processing" size={24} color={COLORS.accent} />
+          <Text style={styles.chatButtonText}>ЧАТ ЧЕЛЛЕНДЖА</Text>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={COLORS.muted} />
+        </Pressable>
+      )}
+
       <View style={styles.participantsCard}>
         <Text style={styles.sectionTitle}>
           УЧАСТНИКИ ({sortedParticipants.length})
@@ -277,4 +291,19 @@ const styles = StyleSheet.create({
   joinBtnText: { fontSize: 18, color: "#FFF", fontFamily: "Rimma_sans" },
   btnPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
   btnDisabled: { opacity: 0.6 },
+  chatButton: {
+    backgroundColor: COLORS.card,
+    borderRadius: 24,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    elevation: 5,
+  },
+  chatButtonText: {
+    flex: 1,
+    fontSize: 20,
+    color: COLORS.text,
+    fontFamily: "Rimma_sans",
+  },
 });

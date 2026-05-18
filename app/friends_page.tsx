@@ -209,7 +209,13 @@ export default function FriendsPage() {
                 <View key={friend.userId} style={styles.friendRow}>
                   <MaterialCommunityIcons name="account-circle" size={40} color={COLORS.accent} />
                   <Text style={styles.friendName}>{friend.displayName}</Text>
-                  <Pressable style={styles.challengeBtn}>
+                  <Pressable
+                    style={styles.challengeBtn}
+                    onPress={() => router.push({
+                      pathname: "/create-challenge_page",
+                      params: { friendId: friend.userId, friendName: friend.displayName }
+                    })}
+                  >
                     <Text style={styles.challengeBtnText}>ВЫЗОВ</Text>
                   </Pressable>
                 </View>
