@@ -43,3 +43,11 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Cloud Functions
+functions/node_modules/
+functions/.runtimeconfig.json
+
+# Documents
+*.docx
+*.doc

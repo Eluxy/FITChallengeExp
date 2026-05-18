@@ -1,5 +1,13 @@
+import { useAuth } from "@/src/context/auth-context";
+import { getFirebaseAuth } from "@/src/config/firebase";
+import { FirebaseChallengeRepository } from "@/src/data/repositories/firebase-challenge-repository";
+import { useGoogleFitData } from "@/src/presentation/view-models/use-google-fit-data";
+import type { Challenge } from "@/src/domain/entities/challenge";
+import { getChallengeUnit, getChallengeIcon } from "@/src/domain/entities/challenge";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
@@ -11,32 +19,87 @@ const COLORS = {
   muted: "#8F8A82",
   green: "#48B75A",
   red: "#D94A2B",
-} as const;
+};
 
-const ACTIVE_CHALLENGES = [
-  {
-    id: "1",
-    title: "10 000 ШАГОВ",
-    subtitle: "Сегодня",
-    progress: 68,
-    reward: "+120 XP",
-  },
-  {
-    id: "2",
-    title: "2 500 ККАЛ",
-    subtitle: "Неделя",
-    progress: 74,
-    reward: "+200 XP",
-  },
-];
-
-const COMPLETED_CHALLENGES = [
-  { id: "1", title: "7 ДНЕЙ ПОДРЯД", reward: "+300 XP" },
-  { id: "2", title: "15 000 ШАГОВ", reward: "+180 XP" },
-];
+type Tab = "active" | "system" | "completed";
 
 export default function ChallengesPage() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { isConnected } = useAuth();
+  useGoogleFitData();
+  const [activeTab, setActiveTab] = useState<Tab>("active");
+  const [activeChallenges, setActiveChallenges] = useState<Challenge[]>([]);
+  const [systemChallenges, setSystemChallenges] = useState<Challenge[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const repo = new FirebaseChallengeRepository();
+  const auth = getFirebaseAuth();
+  const currentUser = auth.currentUser;
+
+  const loadChallenges = useCallback(async () => {
+    if (!currentUser) return;
+    setIsLoading(true);
+    try {
+      // Проверяем и завершаем истёкшие челленджи
+      await repo.checkAndCompleteExpiredChallenges();
+
+      const [allChallenges, system] = await Promise.all([
+        repo.getUserChallenges(currentUser.uid),
+        repo.getSystemChallenges(),
+      ]);
+      setActiveChallenges(allChallenges.filter((c) => c.status === "active" || c.status === "pending"));
+      setSystemChallenges(system);
+    } catch (err) {
+      console.log("Error loading challenges:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    loadChallenges();
+  }, [loadChallenges]);
+
+  const renderChallengeCard = (challenge: Challenge) => {
+    const myParticipation = challenge.participants.find((p) => p.userId === currentUser?.uid);
+    const myValue = myParticipation?.currentValue ?? 0;
+    const progress = challenge.targetValue > 0
+      ? Math.min(Math.round((myValue / challenge.targetValue) * 100), 100)
+      : 0;
+
+    return (
+      <Pressable
+        key={challenge.id}
+        style={styles.challengeCard}
+        onPress={() => router.push(`/challenge-detail_page?id=${challenge.id}`)}
+      >
+        <View style={styles.challengeTopRow}>
+          <View style={styles.challengeLeft}>
+            <MaterialCommunityIcons
+              name={getChallengeIcon(challenge.type) as any}
+              size={24}
+              color={COLORS.accent}
+            />
+            <View>
+              <Text style={styles.challengeTitle}>{challenge.title}</Text>
+              <Text style={styles.challengeSubtitle}>
+                {challenge.targetValue.toLocaleString()} {getChallengeUnit(challenge.type)}
+                {challenge.isSystem ? " • Системный" : ""}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.challengeReward}>{progress}%</Text>
+        </View>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${progress}%` }]} />
+        </View>
+        <Text style={styles.progressText}>
+          {challenge.participants.length} участников • до {new Date(challenge.endDate).toLocaleDateString("ru-RU")}
+        </Text>
+      </Pressable>
+    );
+  };
 
   return (
     <ScrollView
@@ -47,68 +110,91 @@ export default function ChallengesPage() {
       <View style={styles.header}>
         <MaterialCommunityIcons name="flag-checkered" size={26} color={COLORS.text} />
         <Text style={styles.headerTitle}>ЧЕЛЛЕНДЖИ</Text>
-        <MaterialCommunityIcons name="trophy-outline" size={24} color={COLORS.text} />
+        <MaterialCommunityIcons
+          name="trophy-outline"
+          size={24}
+          color={COLORS.text}
+          onPress={loadChallenges}
+        />
       </View>
 
       <View style={styles.switchCard}>
-        <Text style={styles.switchActive}>АКТИВНЫЕ</Text>
-        <Text style={styles.switchItem}>СЕЗОН</Text>
-        <Text style={styles.switchItem}>АРХИВ</Text>
+        <Pressable onPress={() => setActiveTab("active")}>
+          <Text style={activeTab === "active" ? styles.switchActive : styles.switchItem}>
+            АКТИВНЫЕ
+          </Text>
+        </Pressable>
+        <Pressable onPress={() => setActiveTab("system")}>
+          <Text style={activeTab === "system" ? styles.switchActive : styles.switchItem}>
+            СИСТЕМНЫЕ
+          </Text>
+        </Pressable>
+        <Pressable onPress={() => setActiveTab("completed")}>
+          <Text style={activeTab === "completed" ? styles.switchActive : styles.switchItem}>
+            АРХИВ
+          </Text>
+        </Pressable>
       </View>
 
-      <View style={styles.statsCard}>
-        {ACTIVE_CHALLENGES.map((challenge) => (
-          <Pressable key={challenge.id} style={styles.challengeCard}>
-            <View style={styles.challengeTopRow}>
-              <View>
-                <Text style={styles.challengeTitle}>{challenge.title}</Text>
-                <Text style={styles.challengeSubtitle}>{challenge.subtitle}</Text>
-              </View>
-              <Text style={styles.challengeReward}>{challenge.reward}</Text>
-            </View>
-            <View style={styles.progressTrack}>
-              <View
-                style={[styles.progressFill, { width: `${challenge.progress}%` }]}
-              />
-            </View>
-            <Text style={styles.progressText}>{challenge.progress}% выполнено</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <View style={styles.bestDayCard}>
-        <Text style={styles.bestDayTop}>ЗАВЕРШЕННЫЕ</Text>
-        {COMPLETED_CHALLENGES.map((challenge) => (
-          <View key={challenge.id} style={styles.completedRow}>
-            <MaterialCommunityIcons
-              name="check-circle"
-              size={18}
-              color={COLORS.green}
-              style={styles.completedIcon}
-            />
-            <Text style={styles.completedTitle}>{challenge.title}</Text>
-            <Text style={styles.completedReward}>{challenge.reward}</Text>
-          </View>
-        ))}
-        <View style={styles.newChallengeButton}>
-          <MaterialCommunityIcons name="plus" size={18} color={COLORS.red} />
-          <Text style={styles.newChallengeText}>СОЗДАТЬ ЧЕЛЛЕНДЖ</Text>
+      {!isConnected ? (
+        <View style={styles.notConnectedCard}>
+          <MaterialCommunityIcons name="account-off-outline" size={48} color={COLORS.muted} />
+          <Text style={styles.notConnectedText}>
+            Войдите в аккаунт, чтобы участвовать в челленджах
+          </Text>
         </View>
-      </View>
+      ) : isLoading ? (
+        <View style={{ paddingVertical: 40, alignItems: "center" }}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+        </View>
+      ) : activeTab === "active" ? (
+        <View style={styles.listCard}>
+          {activeChallenges.length === 0 ? (
+            <View style={{ alignItems: "center", paddingVertical: 20 }}>
+              <MaterialCommunityIcons name="flag-checkered" size={40} color={COLORS.muted} />
+              <Text style={{ color: COLORS.muted, marginTop: 8 }}>Нет активных челленджей</Text>
+            </View>
+          ) : (
+            activeChallenges.map(renderChallengeCard)
+          )}
+          <Pressable
+            style={styles.newChallengeButton}
+            onPress={() => router.push("/create-challenge_page")}
+          >
+            <MaterialCommunityIcons name="plus" size={18} color={COLORS.accent} />
+            <Text style={styles.newChallengeText}>СОЗДАТЬ ЧЕЛЛЕНДЖ</Text>
+          </Pressable>
+        </View>
+      ) : activeTab === "system" ? (
+        <View style={styles.listCard}>
+          {systemChallenges.length === 0 ? (
+            <View style={{ alignItems: "center", paddingVertical: 20 }}>
+              <MaterialCommunityIcons name="trophy-outline" size={40} color={COLORS.muted} />
+              <Text style={{ color: COLORS.muted, marginTop: 8, textAlign: "center" }}>
+                Системные челленджи появятся после настройки Cloud Functions
+              </Text>
+            </View>
+          ) : (
+            systemChallenges.map(renderChallengeCard)
+          )}
+        </View>
+      ) : (
+        <View style={styles.listCard}>
+          <View style={{ alignItems: "center", paddingVertical: 20 }}>
+            <MaterialCommunityIcons name="archive-outline" size={40} color={COLORS.muted} />
+            <Text style={{ color: COLORS.muted, marginTop: 8 }}>
+              Завершённые челленджи
+            </Text>
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
-  content: {
-    paddingHorizontal: 18,
-    paddingBottom: 24,
-    gap: 14,
-  },
+  root: { flex: 1, backgroundColor: COLORS.bg },
+  content: { paddingHorizontal: 18, paddingBottom: 24, gap: 14 },
   header: {
     backgroundColor: COLORS.cream,
     borderRadius: 18,
@@ -118,11 +204,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
-  headerTitle: {
-    fontSize: 34,
-    color: COLORS.text,
-    fontFamily: "Rimma_sans",
-  },
+  headerTitle: { fontSize: 34, color: COLORS.text, fontFamily: "Rimma_sans" },
   switchCard: {
     backgroundColor: COLORS.cream,
     borderRadius: 24,
@@ -141,14 +223,24 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontFamily: "Rimma_sans",
   },
-  statsCard: {
+  notConnectedCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 24,
+    alignItems: "center",
+    paddingVertical: 24,
+    paddingHorizontal: 18,
+  },
+  notConnectedText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: COLORS.muted,
+    textAlign: "center",
+    fontFamily: "Rimma_sans",
+  },
+  listCard: {
     backgroundColor: COLORS.card,
     borderRadius: 24,
     padding: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
     elevation: 7,
   },
   challengeCard: {
@@ -162,16 +254,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  challengeLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
   challengeTitle: {
-    fontSize: 28,
+    fontSize: 20,
     color: COLORS.text,
     fontFamily: "Rimma_sans",
   },
   challengeSubtitle: {
-    marginTop: -4,
-    fontSize: 18,
+    fontSize: 13,
     color: COLORS.muted,
-    fontFamily: "Rimma_sans",
   },
   challengeReward: {
     fontSize: 18,
@@ -192,45 +283,8 @@ const styles = StyleSheet.create({
   },
   progressText: {
     marginTop: 4,
-    fontSize: 16,
+    fontSize: 13,
     color: COLORS.muted,
-    fontFamily: "Rimma_sans",
-  },
-  bestDayCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 7,
-  },
-  bestDayTop: {
-    fontSize: 20,
-    color: COLORS.muted,
-    fontFamily: "Rimma_sans",
-    marginBottom: 4,
-  },
-  completedRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 7,
-  },
-  completedIcon: {
-    marginRight: 8,
-  },
-  completedTitle: {
-    flex: 1,
-    fontSize: 22,
-    color: COLORS.text,
-    fontFamily: "Rimma_sans",
-  },
-  completedReward: {
-    fontSize: 16,
-    color: COLORS.green,
-    fontFamily: "Rimma_sans",
   },
   newChallengeButton: {
     marginTop: 8,

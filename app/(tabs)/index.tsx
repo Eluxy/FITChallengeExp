@@ -1,16 +1,17 @@
+import { useAuth } from "@/src/context/auth-context";
+import { useGoogleFitData } from "@/src/presentation/view-models/use-google-fit-data";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useMainPageViewModel } from "@/src/presentation/view-models/use-main-page-view-model";
 
 const COLORS = {
   bg: "#EFD8A8",
@@ -34,8 +35,10 @@ const MASCOT_OFFSET_Y = 45;
 export default function MainPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { stats, steps, calories, isLoading, error, isConnected, connectGoogleFit, refresh } =
-    useMainPageViewModel();
+  const { isConnected } = useAuth();
+  const { stats, steps, calories, isLoading, error, refresh } = useGoogleFitData();
+
+  console.log("🖥️ MainPage render - isConnected:", isConnected, "steps:", steps, "calories:", calories, "stats:", stats);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
@@ -118,27 +121,30 @@ export default function MainPage() {
         <Text style={styles.liveText}>
           {isConnected
             ? `Сегодня: ${steps.toLocaleString("ru-RU")} шагов • ${calories.toLocaleString("ru-RU")} ккал`
-            : "Google Fit не подключен"}
+            : "Подключите Google Fit в разделе Аккаунт"}
         </Text>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        <View style={styles.actionsRow}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={connectGoogleFit}
-            style={({ pressed }) => [styles.actionButton, pressed && styles.btnPressed]}
-          >
-            <Text style={styles.actionText}>
-              {isConnected ? "ПЕРЕПОДКЛЮЧИТЬ FIT" : "ПОДКЛЮЧИТЬ FIT"}
-            </Text>
-          </Pressable>
+        {isLoading && isConnected ? (
+          <Text style={styles.loadingText}>Обновление данных...</Text>
+        ) : null}
+        
+        {isConnected && (
           <Pressable
             accessibilityRole="button"
             onPress={refresh}
-            style={({ pressed }) => [styles.actionButton, pressed && styles.btnPressed]}
+            disabled={isLoading}
+            style={({ pressed }) => [
+              styles.refreshButton,
+              pressed && styles.btnPressed,
+              isLoading && styles.btnDisabled,
+            ]}
           >
-            <Text style={styles.actionText}>{isLoading ? "ОБНОВЛЯЕМ..." : "ОБНОВИТЬ"}</Text>
+            <MaterialCommunityIcons name="refresh" size={18} color={COLORS.accent} />
+            <Text style={styles.refreshText}>
+              {isLoading ? "ОБНОВЛЯЕМ..." : "ОБНОВИТЬ ДАННЫЕ"}
+            </Text>
           </Pressable>
-        </View>
+        )}
 
         <Pressable
           accessibilityRole="button"
@@ -151,7 +157,7 @@ export default function MainPage() {
         <View style={styles.btnRow}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push("/explore")}
+            onPress={() => router.push("/leaderboard_page")}
             style={({ pressed }) => [styles.btnHalf, pressed && styles.btnPressed]}
           >
             <Text style={styles.btnTextSmall}>ЛИДЕРБОРДЫ</Text>
@@ -331,6 +337,33 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontFamily: "Rimma_sans",
   },
+  loadingText: {
+    marginTop: 4,
+    fontSize: 13,
+    color: COLORS.muted,
+    textAlign: "center",
+    fontFamily: "Rimma_sans",
+  },
+  refreshButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: COLORS.cream,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  refreshText: {
+    fontSize: 14,
+    color: COLORS.accent,
+    fontFamily: "Rimma_sans",
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
   actionsRow: {
     width: "100%",
     maxWidth: 360,
@@ -340,6 +373,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   actionButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    backgroundColor: COLORS.cream,
+    alignItems: "center",
+  },
+  actionButtonFull: {
     flex: 1,
     borderRadius: 12,
     paddingVertical: 10,
