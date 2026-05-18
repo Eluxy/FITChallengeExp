@@ -1,5 +1,6 @@
+import { useAuth } from "@/src/context/auth-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
@@ -12,14 +13,16 @@ const COLORS = {
   green: "#48B75A",
 } as const;
 
-const DEVICES = [
-  { id: "1", name: "Mi Band 8", status: "Подключено", battery: "82%" },
-  { id: "2", name: "Apple Watch", status: "Неактивно", battery: "—" },
-  { id: "3", name: "Samsung Health", status: "Синхр. 2 мин назад", battery: "app" },
-];
-
 export default function DevicePage() {
   const insets = useSafeAreaInsets();
+  const { isConnected } = useAuth();
+
+  const DEVICES = isConnected
+    ? [
+        { id: "1", name: "Google Fit", status: "Подключено", battery: "✓" },
+        { id: "2", name: "Xiaomi Mi Band", status: "Доступно", battery: "—" },
+      ]
+    : [];
 
   return (
     <ScrollView
@@ -30,28 +33,64 @@ export default function DevicePage() {
       <View style={styles.header}>
         <MaterialCommunityIcons name="watch-variant" size={26} color={COLORS.text} />
         <Text style={styles.headerTitle}>УСТРОЙСТВА</Text>
-        <MaterialCommunityIcons name="plus-circle-outline" size={24} color={COLORS.text} />
+        <MaterialCommunityIcons
+          name="plus-circle-outline"
+          size={24}
+          color={COLORS.muted}
+          onPress={() => {}}
+        />
       </View>
 
       <View style={styles.card}>
-        {DEVICES.map((device) => (
-          <View key={device.id} style={styles.row}>
-            <View style={styles.left}>
-              <Text style={styles.deviceName}>{device.name}</Text>
-              <Text style={styles.deviceStatus}>{device.status}</Text>
-            </View>
-            <Text style={styles.battery}>{device.battery}</Text>
+        {!isConnected ? (
+          <View style={styles.notConnectedCard}>
+            <MaterialCommunityIcons name="watch-variant" size={48} color={COLORS.muted} />
+            <Text style={styles.notConnectedText}>
+              Войдите в аккаунт, чтобы подключить устройства
+            </Text>
           </View>
-        ))}
+        ) : DEVICES.length === 0 ? (
+          <View style={styles.notConnectedCard}>
+            <MaterialCommunityIcons name="watch-variant" size={48} color={COLORS.muted} />
+            <Text style={styles.notConnectedText}>Нет подключенных устройств</Text>
+          </View>
+        ) : (
+          DEVICES.map((device) => (
+            <Pressable
+              key={device.id}
+              style={styles.row}
+              onPress={() => {
+                if (device.name === "Xiaomi Mi Band") {
+                  // TODO: Bluetooth LE scanning
+                }
+              }}
+            >
+              <View style={styles.left}>
+                <Text style={styles.deviceName}>{device.name}</Text>
+                <Text style={styles.deviceStatus}>{device.status}</Text>
+              </View>
+              <Text style={styles.battery}>{device.battery}</Text>
+            </Pressable>
+          ))
+        )}
       </View>
 
-      <View style={styles.syncCard}>
-        <Text style={styles.syncTitle}>СИНХРОНИЗАЦИЯ</Text>
-        <Text style={styles.syncText}>Последняя синхронизация: сегодня, 21:35</Text>
-        <View style={styles.syncButton}>
-          <Text style={styles.syncButtonText}>СИНХРОНИЗИРОВАТЬ</Text>
+      {isConnected && (
+        <View style={styles.syncCard}>
+          <Text style={styles.syncTitle}>СИНХРОНИЗАЦИЯ</Text>
+          <Text style={styles.syncText}>
+            Данные обновляются автоматически каждые 2 минуты
+          </Text>
+          <Pressable
+            style={styles.syncButton}
+            onPress={() => {
+              // Симуляция синхронизации
+            }}
+          >
+            <Text style={styles.syncButtonText}>GOOGLE FIT ПОДКЛЮЧЕН</Text>
+          </Pressable>
         </View>
-      </View>
+      )}
     </ScrollView>
   );
 }
@@ -90,6 +129,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 7,
+  },
+  notConnectedCard: {
+    alignItems: "center",
+    paddingVertical: 24,
+  },
+  notConnectedText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: COLORS.muted,
+    textAlign: "center",
+    fontFamily: "Rimma_sans",
   },
   row: {
     flexDirection: "row",

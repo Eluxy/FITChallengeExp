@@ -25,7 +25,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="main_page"
+        name="index"
         options={{
           title: "Home",
           tabBarIcon: ({ color }) => (
@@ -53,9 +53,11 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="account_page"
-        options={{
-          href: null,
-        }}
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="leaderboard_page"
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="challenges_page"
