@@ -2,8 +2,8 @@ import { FirebaseChallengeRepository } from "@/src/data/repositories/firebase-ch
 import type { ChallengeType } from "@/src/domain/entities/challenge";
 import { getChallengeUnit, getChallengeIcon } from "@/src/domain/entities/challenge";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -45,7 +45,8 @@ const DURATIONS = [
 export default function CreateChallengePage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [title, setTitle] = useState("");
+  const { friendId, friendName } = useLocalSearchParams<{ friendId?: string; friendName?: string }>();
+  const [title, setTitle] = useState(friendName ? `Челлендж с ${friendName}` : "");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<ChallengeType>("steps");
   const [targetValue, setTargetValue] = useState("");

@@ -46,7 +46,7 @@ export default function MainPage() {
         <Pressable
           accessibilityRole="button"
           hitSlop={12}
-          onPress={() => {}}
+          onPress={() => router.push("/settings_page")}
           style={styles.headerIconBtn}
         >
           <MaterialCommunityIcons name="menu" size={28} color={COLORS.text} />

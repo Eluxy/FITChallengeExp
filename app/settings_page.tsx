@@ -1,8 +1,9 @@
 import { useAuth } from "@/src/context/auth-context";
+import { scheduleDailyReminder } from "@/src/services/notifications/notification-service";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
@@ -70,13 +71,27 @@ export default function SettingsPage() {
             <MaterialCommunityIcons name="chevron-right" size={22} color={COLORS.muted} />
           </Pressable>
           <View style={styles.divider} />
-          <Pressable style={styles.row}>
+          <Pressable
+            style={styles.row}
+            onPress={() => Alert.alert(
+              "Уведомления",
+              `Ежедневное напоминание: 20:00\n\nДоступны каналы:\n• Челленджи\n• Социальные\n• Достижения`,
+              [{ text: "OK" }]
+            )}
+          >
             <MaterialCommunityIcons name="bell-outline" size={22} color={COLORS.accent} />
             <Text style={styles.rowText}>Уведомления</Text>
             <MaterialCommunityIcons name="chevron-right" size={22} color={COLORS.muted} />
           </Pressable>
           <View style={styles.divider} />
-          <Pressable style={styles.row}>
+          <Pressable
+            style={styles.row}
+            onPress={() => Alert.alert(
+              "Конфиденциальность",
+              "Ваши данные синхронизируются через Google Fit и Firebase.\n\nДанные не передаются третьим лицам.",
+              [{ text: "OK" }]
+            )}
+          >
             <MaterialCommunityIcons name="shield-outline" size={22} color={COLORS.accent} />
             <Text style={styles.rowText}>Конфиденциальность</Text>
             <MaterialCommunityIcons name="chevron-right" size={22} color={COLORS.muted} />
@@ -96,13 +111,23 @@ export default function SettingsPage() {
             <MaterialCommunityIcons name="chevron-right" size={22} color={COLORS.muted} />
           </Pressable>
           <View style={styles.divider} />
-          <Pressable style={styles.row}>
+          <Pressable
+            style={styles.row}
+            onPress={() => Alert.alert(
+              "Тема",
+              "Автоматически: светлая/тёмная в зависимости от настроек системы",
+              [{ text: "OK" }]
+            )}
+          >
             <MaterialCommunityIcons name="theme-light-dark" size={22} color={COLORS.accent} />
             <Text style={styles.rowText}>Тема оформления</Text>
             <MaterialCommunityIcons name="chevron-right" size={22} color={COLORS.muted} />
           </Pressable>
           <View style={styles.divider} />
-          <Pressable style={styles.row}>
+          <Pressable
+            style={styles.row}
+            onPress={() => Alert.alert("Язык", "Текущий язык: Русский", [{ text: "OK" }])}
+          >
             <MaterialCommunityIcons name="translate" size={22} color={COLORS.accent} />
             <Text style={styles.rowText}>Язык</Text>
             <MaterialCommunityIcons name="chevron-right" size={22} color={COLORS.muted} />
