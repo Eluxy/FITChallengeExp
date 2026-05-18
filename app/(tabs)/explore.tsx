@@ -1,8 +1,9 @@
+import { useAuth } from "@/src/context/auth-context";
+import { fetchDailyProgressRange } from "@/src/data/firebase/firestore-rest";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { fetchDailyProgressRange } from "@/src/data/firebase/firestore-rest";
 
 const COLORS = {
   bg: "#EFD8A8",
@@ -78,17 +79,24 @@ function getPeriodTitle(period: Period): string {
 
 export default function StatisticsPage() {
   const insets = useSafeAreaInsets();
+  const { userInfo, isConnected } = useAuth();
   const [period, setPeriod] = useState<Period>("day");
   const [stats, setStats] = useState<StatsState>(EMPTY_STATS);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const progressUserId = useMemo(
-    () => process.env.EXPO_PUBLIC_PROGRESS_USER_ID ?? "guest",
-    [],
+    () => userInfo?.email?.replace(/[@.]/g, "_") ?? process.env.EXPO_PUBLIC_PROGRESS_USER_ID ?? "guest",
+    [userInfo],
   );
 
   const loadStatistics = useCallback(async () => {
+    if (!isConnected) {
+      setStats(EMPTY_STATS);
+      setError("Войдите в аккаунт для просмотра статистики");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -131,12 +139,14 @@ export default function StatisticsPage() {
         bestDayDate,
         bestDaySteps,
       });
-    } catch {
+    } catch (err: any) {
+      console.log("❌ Statistics error:", err);
+      console.log("❌ Error message:", err.message);
       setError("Не удалось загрузить статистику из Firebase");
     } finally {
       setIsLoading(false);
     }
-  }, [period, progressUserId]);
+  }, [period, progressUserId, isConnected]);
 
   useEffect(() => {
     void loadStatistics();

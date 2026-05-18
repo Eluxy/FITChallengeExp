@@ -14,57 +14,86 @@ type GoogleFitAggregateResponse = {
 export type GoogleFitSummary = {
   steps: number;
   calories: number;
+  heartRate?: number;
+  distanceMeters?: number;
 };
+
+async function fetchDataset(
+  accessToken: string,
+  startTimeMillis: number,
+  endTimeMillis: number,
+  dataTypes: { dataTypeName: string }[],
+  valueIndex: number,
+  valueType: "int" | "fp" = "fp",
+): Promise<number> {
+  const requestBody = {
+    aggregateBy: dataTypes,
+    bucketByTime: { durationMillis: endTimeMillis - startTimeMillis },
+    startTimeMillis,
+    endTimeMillis,
+  };
+
+  const response = await fetch(
+    "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    },
+  );
+
+  if (!response.ok) {
+    return 0;
+  }
+
+  const json = (await response.json()) as GoogleFitAggregateResponse;
+  const firstBucket = json.bucket?.[0];
+  const dataset = firstBucket?.dataset?.[valueIndex];
+
+  if (!dataset?.point) return 0;
+
+  return dataset.point.reduce((sum, point) => {
+    const raw = point.value?.[0];
+    if (!raw) return sum;
+    const val = valueType === "int" ? (raw.intVal ?? 0) : (raw.fpVal ?? 0);
+    return sum + Math.max(0, val);
+  }, 0);
+}
 
 export async function fetchGoogleFitSummary(params: {
   accessToken: string;
   startTimeMillis: number;
   endTimeMillis: number;
 }): Promise<GoogleFitSummary> {
-  const response = await fetch(
-    "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${params.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        aggregateBy: [
-          { dataTypeName: "com.google.step_count.delta" },
-          { dataTypeName: "com.google.calories.expended" },
-        ],
-        bucketByTime: { durationMillis: params.endTimeMillis - params.startTimeMillis },
-        startTimeMillis: params.startTimeMillis,
-        endTimeMillis: params.endTimeMillis,
-      }),
-    },
-  );
+  const { accessToken, startTimeMillis, endTimeMillis } = params;
 
-  if (!response.ok) {
-    throw new Error("Не удалось получить данные Google Fit");
-  }
+  const [steps, calories, heartRateData, distanceMeters] = await Promise.all([
+    fetchDataset(accessToken, startTimeMillis, endTimeMillis, [
+      { dataTypeName: "com.google.step_count.delta" },
+      { dataTypeName: "com.google.calories.expended" },
+    ], 0, "int"),
 
-  const json = (await response.json()) as GoogleFitAggregateResponse;
-  const firstBucket = json.bucket?.[0];
-  const stepDataset = firstBucket?.dataset?.[0];
-  const caloriesDataset = firstBucket?.dataset?.[1];
+    fetchDataset(accessToken, startTimeMillis, endTimeMillis, [
+      { dataTypeName: "com.google.step_count.delta" },
+      { dataTypeName: "com.google.calories.expended" },
+    ], 1, "fp"),
 
-  const steps =
-    stepDataset?.point?.reduce((sum, point) => {
-      const value = point.value?.[0]?.intVal ?? 0;
-      return sum + value;
-    }, 0) ?? 0;
+    fetchDataset(accessToken, startTimeMillis, endTimeMillis, [
+      { dataTypeName: "com.google.heart_rate.bpm" },
+    ], 0, "fp"),
 
-  const calories =
-    caloriesDataset?.point?.reduce((sum, point) => {
-      const value = point.value?.[0]?.fpVal ?? 0;
-      return sum + value;
-    }, 0) ?? 0;
+    fetchDataset(accessToken, startTimeMillis, endTimeMillis, [
+      { dataTypeName: "com.google.distance.delta" },
+    ], 0, "fp"),
+  ]);
 
   return {
     steps,
     calories: Math.round(calories),
+    heartRate: Math.round(heartRateData) || undefined,
+    distanceMeters: Math.round(distanceMeters) || undefined,
   };
 }
-

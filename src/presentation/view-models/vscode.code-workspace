@@ -1,0 +1,22 @@
+{
+  "folders": [
+	{
+		"path": "../../../../.."
+	}
+],
+  "settings": {
+    "liveServer.settings.multiRootWorkspaceName": "SItes HTML, CSS",
+    "workbench.activityBar.iconClickBehavior": "toggle",
+    "workbench.activityBar.location": "top",
+    "workbench.colorTheme": "Kanagawa",
+    "workbench.editor.decorations.colors": true,
+    "workbench.iconTheme": "flow-dim",
+    "workbench.sideBar.location": "left",
+    "workbench.statusBar.visible": true,
+    "workbench.tips.enabled": true,
+    "workbench.tree.enableStickyScroll": true,
+    "breadcrumbs.icons": true,
+    "breadcrumbs.showArrays": true,
+    "editor.fontSize": 18
+  }
+}

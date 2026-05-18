@@ -13,7 +13,7 @@ const DEFAULT_STATS: DashboardStats = {
 
 const GOAL_STEPS = 10000;
 const GOAL_CALORIES = 2000;
-const SAVE_INTERVAL_MS = 10 * 60 * 1000;
+const SAVE_INTERVAL_MS = 2 * 60 * 1000; // 2 минуты
 const GOOGLE_FIT_SCOPES = [
   "https://www.googleapis.com/auth/fitness.activity.read",
   "https://www.googleapis.com/auth/fitness.body.read",
@@ -40,10 +40,20 @@ export function useMainPageViewModel() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [userInfo, setUserInfo] = useState<{
+    email: string;
+    name: string;
+    photo?: string;
+  } | null>(null);
 
   const progressUserId = useMemo(
-    () => process.env.EXPO_PUBLIC_PROGRESS_USER_ID ?? "guest",
-    [],
+    () => userInfo?.email?.replace(/[@.]/g, "_") ?? process.env.EXPO_PUBLIC_PROGRESS_USER_ID ?? "guest",
+    [userInfo],
+  );
+
+  const displayName = useMemo(
+    () => userInfo?.name ?? process.env.EXPO_PUBLIC_PROGRESS_DISPLAY_NAME ?? "Гость",
+    [userInfo],
   );
 
   const connectGoogleFit = useCallback(async () => {
@@ -56,8 +66,19 @@ export function useMainPageViewModel() {
       console.log("✅ Play Services OK");
       
       console.log("🔵 Starting Google Sign In...");
-      const userInfo = await GoogleSignin.signIn();
-      console.log("✅ Sign In successful:", userInfo.data?.user?.email);
+      const signInResult = await GoogleSignin.signIn();
+      console.log("✅ Sign In successful:", signInResult.data?.user?.email);
+      
+      // Сохраняем информацию о пользователе
+      const user = signInResult.data?.user;
+      if (user) {
+        setUserInfo({
+          email: user.email || "",
+          name: user.name || user.email || "Пользователь",
+          photo: user.photo || undefined,
+        });
+        console.log("👤 User info saved:", user.name, user.email);
+      }
       
       console.log("🔵 Getting tokens...");
       const tokens = await GoogleSignin.getTokens();
@@ -92,14 +113,14 @@ export function useMainPageViewModel() {
       await upsertDailyProgress({
         documentId,
         userId: progressUserId,
-        displayName: process.env.EXPO_PUBLIC_PROGRESS_DISPLAY_NAME ?? "Гость",
+        displayName: displayName,
         date: dateIso,
         steps: nextSteps,
         calories: nextCalories,
         progressPercent: nextProgressPercent,
       });
     },
-    [progressUserId],
+    [progressUserId, displayName],
   );
 
   const mapSummaryToStats = useCallback((nextSteps: number, nextCalories: number) => {
@@ -120,18 +141,33 @@ export function useMainPageViewModel() {
 
       try {
         const range = getDayRange();
+        console.log("📅 Loading today's stats for range:", range);
+        
         const summary = await fetchGoogleFitSummary({
           accessToken: token,
           startTimeMillis: range.startTimeMillis,
           endTimeMillis: range.endTimeMillis,
         });
 
+        console.log("📊 Summary received:", summary);
+        console.log("📊 Steps:", summary.steps, "Calories:", summary.calories);
+        
         const nextStats = mapSummaryToStats(summary.steps, summary.calories);
+        console.log("📊 Calculated stats:", nextStats);
+        
         setSteps(summary.steps);
         setCalories(summary.calories);
         setStats(nextStats);
+        
+        console.log("✅ State updated - Steps:", summary.steps, "Calories:", summary.calories);
+        
+        // Включаем сохранение в Firebase
         await saveTodayProgress(summary.steps, summary.calories, nextStats.progressPercent);
-      } catch {
+        
+        console.log("✅ Stats loaded and saved successfully");
+      } catch (err: any) {
+        console.log("❌ Error loading stats:", err);
+        console.log("❌ Error message:", err.message);
         setError("Не удалось загрузить данные из Google Fit");
       } finally {
         setIsLoading(false);
@@ -151,6 +187,38 @@ export function useMainPageViewModel() {
     });
     
     console.log("✅ GoogleSignin configured");
+    
+    // Автоматически проверяем, есть ли сохранённая сессия
+    checkSignedIn();
+  }, []);
+
+  const checkSignedIn = useCallback(async () => {
+    try {
+      // Пробуем получить текущего пользователя
+      const currentUser = await GoogleSignin.getCurrentUser();
+      console.log("🔍 Current user:", currentUser);
+      
+      if (currentUser) {
+        const user = currentUser as any;
+        setUserInfo({
+          email: user.email || "",
+          name: user.name || user.email || "Пользователь",
+          photo: user.photo || undefined,
+        });
+        console.log("👤 User info loaded:", user.name, user.email);
+        
+        const tokens = await GoogleSignin.getTokens();
+        const token = tokens.accessToken;
+        
+        if (token) {
+          console.log("✅ User already signed in, loading data...");
+          setAccessToken(token);
+          await loadTodayStats(token);
+        }
+      }
+    } catch (err) {
+      console.log("ℹ️ No user signed in yet");
+    }
   }, []);
 
   useEffect(() => {
@@ -158,18 +226,34 @@ export function useMainPageViewModel() {
       return;
     }
 
+    // Автоматическое обновление каждые 10 минут
     const interval = setInterval(() => {
+      console.log("🔄 Auto-refreshing data...");
       void loadTodayStats(accessToken);
     }, SAVE_INTERVAL_MS);
 
     return () => clearInterval(interval);
   }, [accessToken, loadTodayStats]);
 
+  const signOut = useCallback(async () => {
+    try {
+      await GoogleSignin.signOut();
+      setAccessToken(null);
+      setUserInfo(null);
+      setStats(DEFAULT_STATS);
+      setSteps(0);
+      setCalories(0);
+      console.log("✅ User signed out");
+    } catch (err) {
+      console.log("❌ Error signing out:", err);
+    }
+  }, []);
+
   const refresh = useCallback(async () => {
     if (!accessToken) {
       return;
     }
-
+    console.log("🔄 Manual refresh triggered");
     await loadTodayStats(accessToken);
   }, [accessToken, loadTodayStats]);
 
@@ -180,7 +264,9 @@ export function useMainPageViewModel() {
     isLoading,
     error,
     isConnected: Boolean(accessToken),
+    userInfo,
     connectGoogleFit,
+    signOut,
     refresh,
   };
 }
