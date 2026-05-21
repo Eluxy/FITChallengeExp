@@ -4,11 +4,7 @@ service cloud.firestore {
 
     // ----- Users -----
     match /users/{userId} {
-      allow read: if request.auth != null && (
-        request.auth.uid == userId ||
-        exists(/databases/$(database)/documents/friends/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/friends/$(request.auth.uid)).data.friends.hasAny([userId])
-      );
+      allow read: if request.auth != null;
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && request.auth.uid == userId;
       allow delete: if false;
@@ -17,7 +13,7 @@ service cloud.firestore {
     // ----- Daily Progress -----
     match /daily_progress/{documentId} {
       allow read: if request.auth != null;
-      allow create, update: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create, update: if request.auth != null && request.resource.data.userId == request.auth.uid;
       allow delete: if false;
     }
 
@@ -39,17 +35,24 @@ service cloud.firestore {
     // ----- Friends -----
     match /friends/{userId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
     // ----- Friend Requests -----
     match /friend_requests/{requestId} {
       allow read: if request.auth != null && (
-        request.auth.uid == resource.data.fromUserId ||
-        request.auth.uid == resource.data.toUserId
+        request.auth.uid == request.resource.data.fromUserId ||
+        request.auth.uid == request.resource.data.toUserId ||
+        (resource != null && (
+          request.auth.uid == resource.data.fromUserId ||
+          request.auth.uid == resource.data.toUserId
+        ))
       );
       allow create: if request.auth != null && request.auth.uid == request.resource.data.fromUserId;
-      allow update: if request.auth != null && request.auth.uid == resource.data.toUserId;
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.toUserId ||
+        request.auth.uid == resource.data.fromUserId
+      );
       allow delete: if false;
     }
 

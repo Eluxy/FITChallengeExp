@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -46,6 +47,10 @@ export default function RegisterPage() {
       setLocalError("Введите email");
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setLocalError("Введите корректный email");
+      return;
+    }
     if (password.length < 6) {
       setLocalError("Пароль должен быть минимум 6 символов");
       return;
@@ -55,7 +60,25 @@ export default function RegisterPage() {
       return;
     }
 
-    await registerWithEmail(email.trim(), password, name.trim());
+    const success = await registerWithEmail(email.trim(), password, name.trim());
+
+    if (success) {
+      Alert.alert(
+        "Регистрация успешна!",
+        `Добро пожаловать, ${name.trim()}!`,
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              if (router.canGoBack()) {
+                router.dismissAll();
+              }
+              router.replace("/(tabs)");
+            },
+          },
+        ],
+      );
+    }
   };
 
   const displayError = localError || error;
@@ -84,17 +107,19 @@ export default function RegisterPage() {
         ) : null}
 
         <View style={styles.formCard}>
+          <Text style={styles.label}>Имя</Text>
           <TextInput
             style={styles.input}
-            placeholder="Имя"
+            placeholder="Ваше имя"
             placeholderTextColor={COLORS.muted}
             value={name}
             onChangeText={setName}
             autoCapitalize="words"
           />
+          <Text style={styles.label}>Email</Text>
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder="example@mail.com"
             placeholderTextColor={COLORS.muted}
             value={email}
             onChangeText={setEmail}
@@ -102,17 +127,19 @@ export default function RegisterPage() {
             autoCapitalize="none"
             autoCorrect={false}
           />
+          <Text style={styles.label}>Пароль</Text>
           <TextInput
             style={styles.input}
-            placeholder="Пароль (минимум 6 символов)"
+            placeholder="Минимум 6 символов"
             placeholderTextColor={COLORS.muted}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
           />
+          <Text style={styles.label}>Подтвердите пароль</Text>
           <TextInput
             style={styles.input}
-            placeholder="Подтвердите пароль"
+            placeholder="Повторите пароль"
             placeholderTextColor={COLORS.muted}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
@@ -169,8 +196,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderRadius: 24,
     padding: 18,
-    gap: 12,
+    gap: 8,
     elevation: 5,
+  },
+  label: {
+    fontSize: 13,
+    color: COLORS.muted,
+    fontFamily: "Rimma_sans",
+    marginTop: 4,
   },
   input: {
     backgroundColor: COLORS.cream,
@@ -185,6 +218,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
+    marginTop: 8,
   },
   primaryBtnText: { fontSize: 18, color: "#FFF", fontFamily: "Rimma_sans" },
   btnPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },

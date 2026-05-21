@@ -43,10 +43,21 @@ export class FirebaseChallengeRepository {
     startDate: string;
     endDate: string;
     isSystem?: boolean;
+    participants?: ChallengeParticipant[];
   }): Promise<string> {
     const auth = getFirebaseAuth();
     const user = auth.currentUser;
     if (!user) throw new Error("Вы не вошли в аккаунт. Войдите через Google или Email.");
+
+    const participants = params.participants ?? [
+      {
+        userId: user.uid,
+        displayName: user.displayName || user.email || "Пользователь",
+        photoUrl: user.photoURL || undefined,
+        joinedAt: new Date().toISOString(),
+        currentValue: 0,
+      },
+    ];
 
     const challengeData = {
       title: params.title,
@@ -57,15 +68,7 @@ export class FirebaseChallengeRepository {
       startDate: params.startDate,
       endDate: params.endDate,
       status: "pending" as ChallengeStatus,
-      participants: [
-        {
-          userId: user.uid,
-          displayName: user.displayName || user.email || "Пользователь",
-          photoUrl: user.photoURL || undefined,
-          joinedAt: new Date().toISOString(),
-          currentValue: 0,
-        },
-      ],
+      participants,
       isSystem: params.isSystem ?? false,
       createdAt: new Date().toISOString(),
     };
