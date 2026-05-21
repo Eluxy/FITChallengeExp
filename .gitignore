@@ -32,6 +32,12 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+.env/
+
+# Firebase config (contains secrets)
+google-services.json
+GoogleService-Info.plist
 
 # typescript
 *.tsbuildinfo
@@ -41,3 +47,11 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Cloud Functions
+functions/node_modules/
+functions/.runtimeconfig.json
+
+# Documents
+*.docx
+*.doc

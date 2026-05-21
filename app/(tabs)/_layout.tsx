@@ -25,7 +25,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="main_page"
+        name="index"
         options={{
           title: "Home",
           tabBarIcon: ({ color }) => (
@@ -36,17 +36,28 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          title: "Explore",
+          title: "Статистика",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
+            <IconSymbol size={28} name="chart.bar.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="device_page"
+        options={{
+          title: "Devices",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="bolt.horizontal.fill" color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="account_page"
-        options={{
-          href: null,
-        }}
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="leaderboard_page"
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="challenges_page"
