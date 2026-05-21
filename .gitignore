@@ -35,6 +35,10 @@ yarn-error.*
 .env
 .env/
 
+# Firebase config (contains secrets)
+google-services.json
+GoogleService-Info.plist
+
 # typescript
 *.tsbuildinfo
 
