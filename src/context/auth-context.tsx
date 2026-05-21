@@ -1,4 +1,4 @@
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
@@ -6,12 +6,14 @@ import {
   signInWithCredential,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
+  updateProfile,
   type User as FirebaseUser,
   onAuthStateChanged,
 } from "firebase/auth";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
-import { getFirebaseAuth } from "@/src/config/firebase";
+import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
 
 const GOOGLE_FIT_SCOPES = [
   "https://www.googleapis.com/auth/fitness.activity.read",
@@ -36,14 +38,62 @@ type AuthContextType = {
   firebaseUser: FirebaseUser | null;
 
   signInWithGoogle: () => Promise<void>;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  registerWithEmail: (email: string, password: string, name: string) => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<boolean>;
+  registerWithEmail: (email: string, password: string, name: string) => Promise<boolean>;
+  resetPassword: (email: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   clearError: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function getFirebaseErrorMessage(code: string | undefined): string {
+  switch (code) {
+    case "auth/user-not-found":
+      return "Пользователь с таким email не найден";
+    case "auth/wrong-password":
+      return "Неверный пароль";
+    case "auth/email-already-in-use":
+      return "Этот email уже используется";
+    case "auth/weak-password":
+      return "Пароль должен содержать минимум 6 символов";
+    case "auth/invalid-email":
+      return "Некорректный email";
+    case "auth/invalid-credential":
+      return "Неверный email или пароль";
+    case "auth/too-many-requests":
+      return "Слишком много попыток. Попробуйте позже";
+    case "auth/network-request-failed":
+      return "Ошибка сети. Проверьте подключение";
+    case "auth/user-disabled":
+      return "Аккаунт заблокирован";
+    default:
+      return "Произошла ошибка. Попробуйте снова";
+  }
+}
+
+async function saveUserProfileToDb(user: FirebaseUser, name: string, photoUrl?: string | null) {
+  const db = getFirebaseDb();
+  const userRef = doc(db, "users", user.uid);
+
+  const existingSnap = await getDoc(userRef);
+  if (existingSnap.exists()) {
+    return;
+  }
+
+  await setDoc(userRef, {
+    name,
+    email: user.email || null,
+    photoUrl: photoUrl || null,
+    createdAt: new Date().toISOString(),
+    lastActive: new Date().toISOString(),
+  }, { merge: true });
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
@@ -53,52 +103,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [authMethod, setAuthMethod] = useState<AuthMethod>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const isInitialized = useRef(false);
 
   const clearError = useCallback(() => setError(null), []);
+
+  const syncUserInfo = useCallback((user: FirebaseUser, dbData?: any) => {
+    const name = dbData?.name ?? user.displayName ?? user.email ?? "Пользователь";
+    const photo = dbData?.photoUrl ?? user.photoURL ?? null;
+
+    setUserInfo({
+      email: user.email ?? "",
+      name,
+      photo: photo || undefined,
+    });
+    setIsConnected(true);
+  }, []);
 
   useEffect(() => {
     GoogleSignin.configure({
       webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
       scopes: GOOGLE_FIT_SCOPES,
       offlineAccess: true,
+      forceCodeForRefreshToken: true,
     });
 
     const auth = getFirebaseAuth();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
+
       if (user) {
-        setUserInfo({
-          email: user.email ?? "",
-          name: user.displayName ?? user.email ?? "Пользователь",
-          photo: user.photoURL ?? undefined,
-        });
-        setIsConnected(true);
+        if (!isInitialized.current) {
+          isInitialized.current = true;
+
+          try {
+            const db = getFirebaseDb();
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+
+            if (userSnap.exists()) {
+              const data = userSnap.data();
+              syncUserInfo(user, data);
+
+              await updateDoc(userRef, {
+                lastActive: new Date().toISOString(),
+              });
+            } else {
+              await saveUserProfileToDb(user, user.displayName ?? user.email ?? "Пользователь", user.photoURL);
+              syncUserInfo(user);
+            }
+          } catch (err) {
+            console.log("Error syncing user profile:", err);
+            syncUserInfo(user);
+          }
+        } else {
+          syncUserInfo(user);
+        }
+      } else {
+        setIsConnected(false);
+        setUserInfo(null);
+        setAccessToken(null);
+        setAuthMethod(null);
       }
     });
 
-    checkGoogleSignIn();
-
     return () => unsubscribe();
-  }, []);
-
-  const checkGoogleSignIn = useCallback(async () => {
-    try {
-      const currentUser = await GoogleSignin.getCurrentUser();
-      if (currentUser) {
-        const user = (currentUser as any).user ?? currentUser;
-
-        // Firebase Auth уже должен быть залогинен через onAuthStateChanged
-        const tokens = await GoogleSignin.getTokens();
-        const token = tokens.accessToken;
-        if (token) {
-          setAccessToken(token);
-          setAuthMethod("google");
-        }
-      }
-    } catch {
-      // No user signed in
-    }
-  }, []);
+  }, [syncUserInfo]);
 
   const signInWithGoogle = useCallback(async () => {
     setError(null);
@@ -106,9 +175,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       await GoogleSignin.hasPlayServices();
+      await GoogleSignin.signOut();
+
       const signInResult = await GoogleSignin.signIn();
 
-      const user = signInResult.data?.user;
       const idToken = signInResult.data?.idToken;
 
       if (!idToken) {
@@ -118,85 +188,119 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const tokens = await GoogleSignin.getTokens();
-      const accessToken = tokens.accessToken;
+      const googleAccessToken = tokens.accessToken;
 
-      if (!accessToken) {
-        setError("Не удалось получить токен доступа");
-        setIsLoading(false);
-        return;
-      }
-
-      // Линкуем Google-вход с Firebase Auth
       const auth = getFirebaseAuth();
       const credential = GoogleAuthProvider.credential(idToken);
-      await signInWithCredential(auth, credential);
+      const result = await signInWithCredential(auth, credential);
 
-      if (user) {
-        setUserInfo({
-          email: user.email || "",
-          name: user.name || user.email || "Пользователь",
-          photo: user.photo || undefined,
-        });
+      if (googleAccessToken) {
+        setAccessToken(googleAccessToken);
       }
 
-      setAccessToken(accessToken);
-      setIsConnected(true);
       setAuthMethod("google");
+
+      await saveUserProfileToDb(
+        result.user,
+        result.user.displayName ?? result.user.email ?? "Пользователь",
+        result.user.photoURL,
+      );
     } catch (err: any) {
-      setError(err.message || "Ошибка авторизации Google");
+      if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+        setError("Вход отменён");
+      } else {
+        setError(err.message || "Ошибка авторизации Google");
+      }
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const signInWithEmail = useCallback(async (email: string, password: string) => {
+  const signInWithEmail = useCallback(async (email: string, password: string): Promise<boolean> => {
     setError(null);
+
+    if (!isValidEmail(email)) {
+      setError("Введите корректный email");
+      return false;
+    }
+    if (!password.trim()) {
+      setError("Введите пароль");
+      return false;
+    }
+
     setIsLoading(true);
 
     try {
       const auth = getFirebaseAuth();
       await signInWithEmailAndPassword(auth, email, password);
-      setIsConnected(true);
       setAuthMethod("email");
+      return true;
     } catch (err: any) {
       const message = getFirebaseErrorMessage(err.code);
       setError(message);
+      return false;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const registerWithEmail = useCallback(async (email: string, password: string, name: string) => {
+  const registerWithEmail = useCallback(async (email: string, password: string, name: string): Promise<boolean> => {
     setError(null);
+
+    if (!name.trim()) {
+      setError("Введите имя");
+      return false;
+    }
+    if (!isValidEmail(email)) {
+      setError("Введите корректный email");
+      return false;
+    }
+    if (password.length < 6) {
+      setError("Пароль должен содержать минимум 6 символов");
+      return false;
+    }
+
     setIsLoading(true);
 
     try {
       const auth = getFirebaseAuth();
       const result = await createUserWithEmailAndPassword(auth, email, password);
-      setIsConnected(true);
-      setAuthMethod("email");
-      setUserInfo({
-        email: result.user.email ?? email,
-        name,
+
+      await updateProfile(result.user, {
+        displayName: name.trim(),
       });
+
+      await saveUserProfileToDb(result.user, name.trim(), null);
+
+      setAuthMethod("email");
+      return true;
     } catch (err: any) {
       const message = getFirebaseErrorMessage(err.code);
       setError(message);
+      return false;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const resetPassword = useCallback(async (email: string) => {
+  const resetPassword = useCallback(async (email: string): Promise<boolean> => {
     setError(null);
+
+    if (!isValidEmail(email)) {
+      setError("Введите корректный email");
+      return false;
+    }
+
     setIsLoading(true);
 
     try {
       const auth = getFirebaseAuth();
       await sendPasswordResetEmail(auth, email);
+      return true;
     } catch (err: any) {
       const message = getFirebaseErrorMessage(err.code);
       setError(message);
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -211,6 +315,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserInfo(null);
       setIsConnected(false);
       setAuthMethod(null);
+      isInitialized.current = false;
     } catch (err) {
       console.log("Error signing out:", err);
     }
@@ -237,27 +342,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-function getFirebaseErrorMessage(code: string | undefined): string {
-  switch (code) {
-    case "auth/user-not-found":
-      return "Пользователь с таким email не найден";
-    case "auth/wrong-password":
-      return "Неверный пароль";
-    case "auth/email-already-in-use":
-      return "Этот email уже используется";
-    case "auth/weak-password":
-      return "Пароль должен содержать минимум 6 символов";
-    case "auth/invalid-email":
-      return "Некорректный email";
-    case "auth/invalid-credential":
-      return "Неверный email или пароль";
-    case "auth/too-many-requests":
-      return "Слишком много попыток. Попробуйте позже";
-    default:
-      return "Произошла ошибка. Попробуйте снова";
-  }
 }
 
 export function useAuth() {

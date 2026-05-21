@@ -4,7 +4,7 @@ import { sendPushToUser } from "@/src/services/notifications/notification-servic
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
@@ -42,23 +42,34 @@ export default function FriendRequestsPage() {
   }, [loadRequests]);
 
   const handleAccept = async (id: string, req?: FriendRequest) => {
-    await repo.current.acceptFriendRequest(id);
+    try {
+      const result = await repo.current.acceptFriendRequest(id);
 
-    if (req) {
-      sendPushToUser(
-        req.fromUserId,
-        "Заявка принята",
-        `${userInfo?.name || "Пользователь"} принял(а) вашу заявку в друзья!`,
-        { type: "friend_accept" },
-      );
+      if (result.success) {
+        if (req) {
+          sendPushToUser(
+            req.fromUserId,
+            "Заявка принята",
+            `${userInfo?.name || "Пользователь"} принял(а) вашу заявку в друзья!`,
+            { type: "friend_accept" },
+          );
+        }
+        await loadRequests();
+      } else {
+        Alert.alert("Внимание", result.message);
+      }
+    } catch (err: any) {
+      Alert.alert("Ошибка", err.message || "Не удалось принять заявку");
     }
-
-    await loadRequests();
   };
 
   const handleReject = async (id: string) => {
-    await repo.current.rejectFriendRequest(id);
-    await loadRequests();
+    try {
+      await repo.current.rejectFriendRequest(id);
+      await loadRequests();
+    } catch (err: any) {
+      Alert.alert("Ошибка", err.message || "Не удалось отклонить заявку");
+    }
   };
 
   return (

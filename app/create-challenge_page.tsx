@@ -1,3 +1,4 @@
+import { getFirebaseAuth } from "@/src/config/firebase";
 import { FirebaseChallengeRepository } from "@/src/data/repositories/firebase-challenge-repository";
 import type { ChallengeType } from "@/src/domain/entities/challenge";
 import { getChallengeUnit, getChallengeIcon } from "@/src/domain/entities/challenge";
@@ -6,6 +7,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -55,6 +57,8 @@ export default function CreateChallengePage() {
   const [error, setError] = useState<string | null>(null);
 
   const repo = new FirebaseChallengeRepository();
+  const auth = getFirebaseAuth();
+  const currentUser = auth.currentUser;
 
   const getTargetPlaceholder = () => {
     switch (type) {
@@ -67,6 +71,11 @@ export default function CreateChallengePage() {
 
   const handleCreate = async () => {
     setError(null);
+
+    if (!currentUser) {
+      setError("Войдите в аккаунт");
+      return;
+    }
 
     if (!title.trim()) {
       setError("Введите название челленджа");
@@ -84,6 +93,26 @@ export default function CreateChallengePage() {
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + duration);
 
+      const participants = [
+        {
+          userId: currentUser.uid,
+          displayName: currentUser.displayName || currentUser.email || "Пользователь",
+          photoUrl: currentUser.photoURL || undefined,
+          joinedAt: new Date().toISOString(),
+          currentValue: 0,
+        },
+      ];
+
+      if (friendId && friendName) {
+        participants.push({
+          userId: friendId,
+          displayName: friendName,
+          photoUrl: undefined,
+          joinedAt: new Date().toISOString(),
+          currentValue: 0,
+        });
+      }
+
       await repo.createChallenge({
         title: title.trim(),
         description: description.trim(),
@@ -91,9 +120,18 @@ export default function CreateChallengePage() {
         targetValue: parseInt(targetValue),
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
+        participants,
       });
 
-      router.back();
+      if (friendName) {
+        Alert.alert(
+          "Челлендж создан!",
+          `${friendName} автоматически добавлен(а) как участник.`,
+          [{ text: "OK", onPress: () => router.back() }],
+        );
+      } else {
+        router.back();
+      }
     } catch (err: any) {
       setError(err.message || "Ошибка создания челленджа");
     } finally {
@@ -111,9 +149,18 @@ export default function CreateChallengePage() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <MaterialCommunityIcons name="arrow-left" size={28} color={COLORS.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>СОЗДАТЬ ЧЕЛЛЕНДЖ</Text>
+          <Text style={styles.headerTitle}>
+            {friendName ? `ЧЕЛЛЕНДЖ С ${friendName.toUpperCase()}` : "СОЗДАТЬ ЧЕЛЛЕНДЖ"}
+          </Text>
           <View style={{ width: 28 }} />
         </View>
+
+        {friendName ? (
+          <View style={styles.friendBadge}>
+            <MaterialCommunityIcons name="account-circle" size={20} color={COLORS.accent} />
+            <Text style={styles.friendBadgeText}>Участник: {friendName}</Text>
+          </View>
+        ) : null}
 
         {error ? (
           <View style={styles.errorCard}>
@@ -200,7 +247,9 @@ export default function CreateChallengePage() {
             {isSaving ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.createBtnText}>СОЗДАТЬ ЧЕЛЛЕНДЖ</Text>
+              <Text style={styles.createBtnText}>
+                {friendName ? `СОЗДАТЬ И ПРИГЛАСИТЬ` : "СОЗДАТЬ ЧЕЛЛЕНДЖ"}
+              </Text>
             )}
           </Pressable>
         </View>
@@ -222,7 +271,18 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginBottom: 14,
   },
-  headerTitle: { fontSize: 22, color: COLORS.text, fontFamily: "Rimma_sans", flex: 1, textAlign: "center" },
+  headerTitle: { fontSize: 18, color: COLORS.text, fontFamily: "Rimma_sans", flex: 1, textAlign: "center" },
+  friendBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+    gap: 8,
+    elevation: 3,
+  },
+  friendBadgeText: { fontSize: 14, color: COLORS.text, fontFamily: "Rimma_sans" },
   errorCard: {
     flexDirection: "row",
     alignItems: "center",

@@ -1,7 +1,7 @@
 import { useAuth } from "@/src/context/auth-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -27,12 +27,20 @@ const COLORS = {
 export default function LoginPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signInWithEmail, signInWithGoogle, isLoading, error, clearError } = useAuth();
+  const { signInWithEmail, signInWithGoogle, isLoading, error, clearError, isConnected } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  useEffect(() => {
+    if (isConnected) {
+      if (router.canGoBack()) {
+        router.dismissAll();
+      }
+      router.replace("/(tabs)");
+    }
+  }, [isConnected]);
+
   const handleEmailLogin = async () => {
-    if (!email.trim() || !password.trim()) return;
     clearError();
     await signInWithEmail(email.trim(), password);
   };
@@ -66,9 +74,10 @@ export default function LoginPage() {
         ) : null}
 
         <View style={styles.formCard}>
+          <Text style={styles.label}>Email</Text>
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder="example@mail.com"
             placeholderTextColor={COLORS.muted}
             value={email}
             onChangeText={setEmail}
@@ -76,9 +85,10 @@ export default function LoginPage() {
             autoCapitalize="none"
             autoCorrect={false}
           />
+          <Text style={styles.label}>Пароль</Text>
           <TextInput
             style={styles.input}
-            placeholder="Пароль"
+            placeholder="Введите пароль"
             placeholderTextColor={COLORS.muted}
             value={password}
             onChangeText={setPassword}
@@ -160,8 +170,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderRadius: 24,
     padding: 18,
-    gap: 12,
+    gap: 8,
     elevation: 5,
+  },
+  label: {
+    fontSize: 13,
+    color: COLORS.muted,
+    fontFamily: "Rimma_sans",
+    marginTop: 4,
   },
   input: {
     backgroundColor: COLORS.cream,
@@ -182,6 +198,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
+    marginTop: 8,
   },
   primaryBtnText: { fontSize: 18, color: "#FFF", fontFamily: "Rimma_sans" },
   btnPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },

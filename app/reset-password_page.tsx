@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -33,10 +34,15 @@ export default function ResetPasswordPage() {
   const [sent, setSent] = useState(false);
 
   const handleReset = async () => {
-    if (!email.trim()) return;
     clearError();
-    await resetPassword(email.trim());
-    if (!error) {
+
+    if (!email.trim()) {
+      return;
+    }
+
+    const success = await resetPassword(email.trim());
+
+    if (success) {
       setSent(true);
     }
   };
@@ -49,14 +55,16 @@ export default function ResetPasswordPage() {
             <MaterialCommunityIcons name="arrow-left" size={28} color={COLORS.text} />
           </Pressable>
           <View style={styles.successCard}>
-            <MaterialCommunityIcons name="check-circle" size={64} color={COLORS.green} />
+            <MaterialCommunityIcons name="email-check" size={64} color={COLORS.green} />
             <Text style={styles.successTitle}>ПИСЬМО ОТПРАВЛЕНО</Text>
             <Text style={styles.successText}>
-              Проверьте почту {email} и перейдите по ссылке для восстановления пароля
+              Проверьте почту{' '}
+              <Text style={{ color: COLORS.text, fontFamily: "Rimma_sans" }}>{email}</Text>
+              {' '}и перейдите по ссылке для восстановления пароля
             </Text>
             <Pressable
               style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed]}
-              onPress={() => router.push("/login_page")}
+              onPress={() => router.replace("/login_page")}
             >
               <Text style={styles.primaryBtnText}>НАЗАД К ВХОДУ</Text>
             </Pressable>
@@ -89,14 +97,16 @@ export default function ResetPasswordPage() {
         ) : null}
 
         <View style={styles.formCard}>
+          <Text style={styles.label}>Email</Text>
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder="example@mail.com"
             placeholderTextColor={COLORS.muted}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoCorrect={false}
           />
           <Pressable
             style={({ pressed }) => [
@@ -114,6 +124,15 @@ export default function ResetPasswordPage() {
             )}
           </Pressable>
         </View>
+
+        <Pressable
+          onPress={() => router.push("/login_page")}
+          style={styles.backLink}
+        >
+          <Text style={styles.backText}>
+            Вспомнили пароль? <Text style={styles.backHighlight}>Войти</Text>
+          </Text>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -139,8 +158,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderRadius: 24,
     padding: 18,
-    gap: 12,
+    gap: 8,
     elevation: 5,
+  },
+  label: {
+    fontSize: 13,
+    color: COLORS.muted,
+    fontFamily: "Rimma_sans",
+    marginTop: 4,
   },
   input: {
     backgroundColor: COLORS.cream,
@@ -155,6 +180,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
+    marginTop: 8,
   },
   primaryBtnText: { fontSize: 18, color: "#FFF", fontFamily: "Rimma_sans" },
   btnPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
@@ -164,10 +190,13 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 24,
     alignItems: "center",
-    gap: 12,
+    gap: 16,
     elevation: 5,
     marginTop: 40,
   },
   successTitle: { fontSize: 22, color: COLORS.text, fontFamily: "Rimma_sans" },
   successText: { fontSize: 14, color: COLORS.muted, textAlign: "center" },
+  backLink: { marginTop: 20, alignItems: "center" },
+  backText: { fontSize: 14, color: COLORS.muted },
+  backHighlight: { color: COLORS.accent, fontFamily: "Rimma_sans" },
 });

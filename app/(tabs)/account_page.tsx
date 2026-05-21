@@ -17,7 +17,7 @@ const COLORS = {
 export default function AccountPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { isConnected, userInfo, isLoading, signInWithGoogle, signOut } = useAuth();
+  const { isConnected, userInfo, isLoading, error, signInWithGoogle, signOut } = useAuth();
 
   return (
     <ScrollView
@@ -31,12 +31,19 @@ export default function AccountPage() {
         <MaterialCommunityIcons name="bell-outline" size={24} color={COLORS.text} />
       </View>
 
+      {error ? (
+        <View style={styles.errorCard}>
+          <MaterialCommunityIcons name="alert-circle" size={20} color="#A4371D" />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
       {!isConnected ? (
         <View style={styles.loginCard}>
           <MaterialCommunityIcons name="account-off-outline" size={80} color={COLORS.muted} />
           <Text style={styles.loginTitle}>Вы не вошли в аккаунт</Text>
           <Text style={styles.loginSubtitle}>
-            Войдите, чтобы синхронизировать данные Google Fit
+            Войдите, чтобы синхронизировать данные и соревноваться с друзьями
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -51,7 +58,10 @@ export default function AccountPage() {
             {isLoading ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.loginButtonText}>ВОЙТИ ЧЕРЕЗ GOOGLE</Text>
+              <>
+                <MaterialCommunityIcons name="google" size={20} color="#FFF" />
+                <Text style={styles.loginButtonText}>ВОЙТИ ЧЕРЕЗ GOOGLE</Text>
+              </>
             )}
           </Pressable>
           <Pressable
@@ -60,6 +70,19 @@ export default function AccountPage() {
             style={({ pressed }) => [styles.emailLoginButton, pressed && styles.btnPressed]}
           >
             <Text style={styles.emailLoginButtonText}>ВОЙТИ ПО EMAIL</Text>
+          </Pressable>
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>НЕТ АККАУНТА?</Text>
+            <View style={styles.dividerLine} />
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push("/register_page")}
+            style={({ pressed }) => [styles.registerButton, pressed && styles.btnPressed]}
+          >
+            <MaterialCommunityIcons name="account-plus" size={20} color={COLORS.accent} />
+            <Text style={styles.registerButtonText}>ЗАРЕГИСТРИРОВАТЬСЯ</Text>
           </Pressable>
         </View>
       ) : (
@@ -158,6 +181,15 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontFamily: "Rimma_sans",
   },
+  errorCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FDE8E0",
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+  },
+  errorText: { flex: 1, fontSize: 14, color: "#A4371D" },
   loginCard: {
     backgroundColor: COLORS.card,
     borderRadius: 24,
@@ -189,8 +221,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 12,
-    minWidth: 200,
+    minWidth: 240,
     alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
   },
   loginButtonText: {
     fontSize: 16,
@@ -203,12 +238,37 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 12,
-    minWidth: 200,
+    minWidth: 240,
     alignItems: "center",
   },
   emailLoginButtonText: {
     fontSize: 16,
     color: COLORS.text,
+    fontFamily: "Rimma_sans",
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 20,
+    gap: 12,
+    width: "100%",
+  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#E8D4A8" },
+  dividerText: { fontSize: 12, color: COLORS.muted, fontFamily: "Rimma_sans" },
+  registerButton: {
+    backgroundColor: COLORS.cream,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    minWidth: 240,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  registerButtonText: {
+    fontSize: 16,
+    color: COLORS.accent,
     fontFamily: "Rimma_sans",
   },
   btnPressed: {
