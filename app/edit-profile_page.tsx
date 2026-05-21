@@ -1,12 +1,14 @@
-import { useAuth } from "@/src/context/auth-context";
 import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -31,7 +33,6 @@ const COLORS = {
 export default function EditProfilePage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { userInfo } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -40,6 +41,8 @@ export default function EditProfilePage() {
   const [gender, setGender] = useState<string>("");
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string>("");
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -65,14 +68,93 @@ export default function EditProfilePage() {
         setGender(data.gender || "");
         setHeightCm(data.heightCm ? String(data.heightCm) : "");
         setWeightKg(data.weightKg ? String(data.weightKg) : "");
+        setPhotoUrl(data.photoUrl || user.photoURL || "");
       } else {
         setName(user.displayName || "");
+        setPhotoUrl(user.photoURL || "");
       }
     } catch (err) {
       console.log("Error loading profile:", err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Ошибка", "Нужен доступ к фото для загрузки аватара");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "images",
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setIsUploadingPhoto(true);
+      try {
+        const auth = getFirebaseAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const response = await fetch(result.assets[0].uri);
+        const blob = await response.blob();
+
+        const storage = getStorage();
+        const storageRef = ref(storage, `avatars/${user.uid}`);
+        await uploadBytes(storageRef, blob);
+        const downloadURL = await getDownloadURL(storageRef);
+
+        setPhotoUrl(downloadURL);
+        await updateProfile(user, { photoURL: downloadURL });
+      } catch (err) {
+        console.log("Error uploading photo:", err);
+        Alert.alert("Ошибка", "Не удалось загрузить фото");
+      } finally {
+        setIsUploadingPhoto(false);
+      }
+    }
+  };
+
+  const validateAndSave = () => {
+    if (!name.trim()) {
+      Alert.alert("Ошибка", "Введите имя");
+      return;
+    }
+    if (age) {
+      const ageNum = parseInt(age);
+      if (isNaN(ageNum) || ageNum < 1 || ageNum > 150) {
+        Alert.alert("Ошибка", "Введите корректный возраст (1-150)");
+        return;
+      }
+    }
+    if (heightCm) {
+      const heightNum = parseFloat(heightCm);
+      if (isNaN(heightNum) || heightNum < 50 || heightNum > 250) {
+        Alert.alert("Ошибка", "Введите корректный рост (50-250 см)");
+        return;
+      }
+    }
+    if (weightKg) {
+      const weightNum = parseFloat(weightKg);
+      if (isNaN(weightNum) || weightNum < 20 || weightNum > 500) {
+        Alert.alert("Ошибка", "Введите корректный вес (20-500 кг)");
+        return;
+      }
+    }
+
+    Alert.alert(
+      "Сохранить изменения?",
+      "Вы уверены, что хотите сохранить изменения в профиле?",
+      [
+        { text: "Отмена", style: "cancel" },
+        { text: "Сохранить", onPress: handleSave },
+      ],
+    );
   };
 
   const handleSave = async () => {
@@ -84,7 +166,7 @@ export default function EditProfilePage() {
 
       const db = getFirebaseDb();
       const profileData: UserProfile = {
-        name: name || user.displayName || "",
+        name: name.trim() || user.displayName || "",
         email: user.email || "",
         age: parseInt(age) || 0,
         gender: gender as UserProfile["gender"],
@@ -95,19 +177,22 @@ export default function EditProfilePage() {
           dailyCalories: 2000,
           dailyDistanceKm: 5,
         },
-        photoUrl: user.photoURL || undefined,
+        photoUrl: photoUrl || undefined,
         createdAt: new Date().toISOString(),
       };
 
       await setDoc(doc(db, "users", user.uid), profileData, { merge: true });
 
-      if (name && name !== user.displayName) {
-        await updateProfile(user, { displayName: name });
+      if (name.trim() && name.trim() !== user.displayName) {
+        await updateProfile(user, { displayName: name.trim() });
       }
 
-      router.back();
-    } catch (err) {
+      Alert.alert("Профиль сохранён", "Ваши изменения успешно сохранены", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
+    } catch (err: any) {
       console.log("Error saving profile:", err);
+      Alert.alert("Ошибка", err.message || "Не удалось сохранить профиль");
     } finally {
       setIsSaving(false);
     }
@@ -136,6 +221,33 @@ export default function EditProfilePage() {
         </View>
 
         <View style={styles.formCard}>
+          <View style={styles.photoSection}>
+            <View style={styles.photoContainer}>
+              {photoUrl ? (
+                <Text style={styles.photoPlaceholder}>
+                  {name.trim().charAt(0).toUpperCase() || "?"}
+                </Text>
+              ) : (
+                <MaterialCommunityIcons name="account-circle" size={80} color={COLORS.accent} />
+              )}
+              {isUploadingPhoto && (
+                <View style={styles.photoOverlay}>
+                  <ActivityIndicator size="small" color="#FFF" />
+                </View>
+              )}
+            </View>
+            <Pressable
+              style={styles.photoButton}
+              onPress={pickImage}
+              disabled={isUploadingPhoto}
+            >
+              <MaterialCommunityIcons name="camera" size={18} color="#FFF" />
+              <Text style={styles.photoButtonText}>
+                {isUploadingPhoto ? "Загрузка..." : photoUrl ? "Сменить фото" : "Добавить фото"}
+              </Text>
+            </Pressable>
+          </View>
+
           <TextInput
             style={styles.input}
             placeholder="Имя"
@@ -195,8 +307,8 @@ export default function EditProfilePage() {
               pressed && styles.btnPressed,
               isSaving && styles.btnDisabled,
             ]}
-            onPress={handleSave}
-            disabled={isSaving}
+            onPress={validateAndSave}
+            disabled={isSaving || isUploadingPhoto}
           >
             {isSaving ? (
               <ActivityIndicator color="#FFF" />
@@ -224,6 +336,45 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   headerTitle: { fontSize: 20, color: COLORS.text, fontFamily: "Rimma_sans", flex: 1, textAlign: "center" },
+  photoSection: {
+    alignItems: "center",
+    paddingVertical: 8,
+    gap: 12,
+  },
+  photoContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: COLORS.cream,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  photoPlaceholder: {
+    fontSize: 40,
+    color: COLORS.accent,
+    fontFamily: "Rimma_sans",
+  },
+  photoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoButton: {
+    flexDirection: "row",
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    gap: 6,
+  },
+  photoButtonText: {
+    fontSize: 14,
+    color: "#FFF",
+    fontFamily: "Rimma_sans",
+  },
   formCard: {
     backgroundColor: COLORS.card,
     borderRadius: 24,

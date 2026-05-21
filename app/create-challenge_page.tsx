@@ -1,5 +1,7 @@
 import { getFirebaseAuth } from "@/src/config/firebase";
 import { FirebaseChallengeRepository } from "@/src/data/repositories/firebase-challenge-repository";
+import { FirebaseFriendRepository, type FriendInfo } from "@/src/data/repositories/firebase-friend-repository";
+import { sendPushToUser } from "@/src/services/notifications/notification-service";
 import type { ChallengeType } from "@/src/domain/entities/challenge";
 import { getChallengeUnit, getChallengeIcon } from "@/src/domain/entities/challenge";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -55,10 +57,45 @@ export default function CreateChallengePage() {
   const [duration, setDuration] = useState(7);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [friends, setFriends] = useState<FriendInfo[]>([]);
+  const [selectedFriendIds, setSelectedFriendIds] = useState<Set<string>>(new Set());
+  const [showFriendSelector, setShowFriendSelector] = useState(false);
+  const [isLoadingFriends, setIsLoadingFriends] = useState(false);
 
   const repo = new FirebaseChallengeRepository();
+  const friendRepo = new FirebaseFriendRepository();
   const auth = getFirebaseAuth();
   const currentUser = auth.currentUser;
+
+  useEffect(() => {
+    if (friendId) {
+      setSelectedFriendIds(new Set([friendId]));
+    }
+    loadFriends();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadFriends = async () => {
+    setIsLoadingFriends(true);
+    try {
+      const friendsList = await friendRepo.getFriends();
+      setFriends(friendsList);
+    } catch (err) {
+      console.log("Error loading friends:", err);
+    } finally {
+      setIsLoadingFriends(false);
+    }
+  };
+
+  const toggleFriend = (friendId: string) => {
+    const newSet = new Set(selectedFriendIds);
+    if (newSet.has(friendId)) {
+      newSet.delete(friendId);
+    } else {
+      newSet.add(friendId);
+    }
+    setSelectedFriendIds(newSet);
+  };
 
   const getTargetPlaceholder = () => {
     switch (type) {
@@ -68,6 +105,8 @@ export default function CreateChallengePage() {
       case "time": return "Например: 300 (мин)";
     }
   };
+
+  const selectedFriends = friends.filter((f) => selectedFriendIds.has(f.userId));
 
   const handleCreate = async () => {
     setError(null);
@@ -103,17 +142,19 @@ export default function CreateChallengePage() {
         },
       ];
 
-      if (friendId && friendName) {
+      const invitedFriends: FriendInfo[] = [];
+      for (const friend of selectedFriends) {
         participants.push({
-          userId: friendId,
-          displayName: friendName,
-          photoUrl: undefined,
+          userId: friend.userId,
+          displayName: friend.displayName,
+          photoUrl: friend.photoUrl,
           joinedAt: new Date().toISOString(),
           currentValue: 0,
         });
+        invitedFriends.push(friend);
       }
 
-      await repo.createChallenge({
+      const challengeId = await repo.createChallenge({
         title: title.trim(),
         description: description.trim(),
         type,
@@ -123,10 +164,20 @@ export default function CreateChallengePage() {
         participants,
       });
 
-      if (friendName) {
+      for (const friend of invitedFriends) {
+        sendPushToUser(
+          friend.userId,
+          "Новый вызов!",
+          `${currentUser.displayName || currentUser.email || "Пользователь"} приглашает вас в челлендж "${title.trim()}"`,
+          { type: "challenge_invite", challengeId },
+        );
+      }
+
+      const invitedCount = invitedFriends.length;
+      if (invitedCount > 0) {
         Alert.alert(
           "Челлендж создан!",
-          `${friendName} автоматически добавлен(а) как участник.`,
+          `${invitedCount} ${invitedCount === 1 ? "участник приглашён" : invitedCount < 5 ? "участника приглашены" : "участников приглашены"}.`,
           [{ text: "OK", onPress: () => router.back() }],
         );
       } else {
@@ -155,12 +206,63 @@ export default function CreateChallengePage() {
           <View style={{ width: 28 }} />
         </View>
 
-        {friendName ? (
-          <View style={styles.friendBadge}>
-            <MaterialCommunityIcons name="account-circle" size={20} color={COLORS.accent} />
-            <Text style={styles.friendBadgeText}>Участник: {friendName}</Text>
+        {selectedFriends.length > 0 && (
+          <View style={styles.selectedFriends}>
+            <Text style={styles.selectedFriendsTitle}>УЧАСТНИКИ ({selectedFriends.length})</Text>
+            <View style={styles.badgeRow}>
+              {selectedFriends.map((friend) => (
+                <View key={friend.userId} style={styles.badge}>
+                  <MaterialCommunityIcons name="account-circle" size={16} color={COLORS.accent} />
+                  <Text style={styles.badgeText}>{friend.displayName}</Text>
+                  <Pressable onPress={() => toggleFriend(friend.userId)} style={styles.badgeRemove}>
+                    <MaterialCommunityIcons name="close" size={14} color={COLORS.muted} />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
           </View>
-        ) : null}
+        )}
+
+        <Pressable
+          style={styles.addFriendsBtn}
+          onPress={() => setShowFriendSelector(!showFriendSelector)}
+        >
+          <MaterialCommunityIcons name="account-plus" size={20} color={COLORS.accent} />
+          <Text style={styles.addFriendsBtnText}>
+            {showFriendSelector ? "Скрыть список" : "+ Добавить участников"}
+          </Text>
+        </Pressable>
+
+        {showFriendSelector && (
+          <View style={styles.friendSelectorCard}>
+            {isLoadingFriends ? (
+              <ActivityIndicator size="small" color={COLORS.accent} />
+            ) : friends.length === 0 ? (
+              <Text style={styles.noFriendsText}>У вас пока нет друзей</Text>
+            ) : (
+              friends.map((friend) => {
+                const isSelected = selectedFriendIds.has(friend.userId);
+                return (
+                  <Pressable
+                    key={friend.userId}
+                    style={[styles.friendRow, isSelected && styles.friendRowSelected]}
+                    onPress={() => toggleFriend(friend.userId)}
+                  >
+                    <MaterialCommunityIcons
+                      name={isSelected ? "checkbox-marked" : "checkbox-blank-outline"}
+                      size={24}
+                      color={isSelected ? COLORS.accent : COLORS.muted}
+                    />
+                    <MaterialCommunityIcons name="account-circle" size={32} color={COLORS.accent} />
+                    <Text style={[styles.friendName, isSelected && styles.friendNameSelected]}>
+                      {friend.displayName}
+                    </Text>
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+        )}
 
         {error ? (
           <View style={styles.errorCard}>
@@ -248,7 +350,7 @@ export default function CreateChallengePage() {
               <ActivityIndicator color="#FFF" />
             ) : (
               <Text style={styles.createBtnText}>
-                {friendName ? `СОЗДАТЬ И ПРИГЛАСИТЬ` : "СОЗДАТЬ ЧЕЛЛЕНДЖ"}
+                {selectedFriends.length > 0 ? `СОЗДАТЬ И ПРИГЛАСИТЬ (${selectedFriends.length})` : "СОЗДАТЬ ЧЕЛЛЕНДЖ"}
               </Text>
             )}
           </Pressable>
@@ -272,17 +374,92 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   headerTitle: { fontSize: 18, color: COLORS.text, fontFamily: "Rimma_sans", flex: 1, textAlign: "center" },
-  friendBadge: {
+  selectedFriends: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 10,
+    elevation: 3,
+  },
+  selectedFriendsTitle: {
+    fontSize: 12,
+    color: COLORS.muted,
+    fontFamily: "Rimma_sans",
+    marginBottom: 8,
+  },
+  badgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  badge: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: COLORS.cream,
+    borderRadius: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    gap: 4,
+  },
+  badgeText: {
+    fontSize: 13,
+    color: COLORS.text,
+    fontFamily: "Rimma_sans",
+  },
+  badgeRemove: {
+    marginLeft: 2,
+  },
+  addFriendsBtn: {
+    flexDirection: "row",
+    backgroundColor: COLORS.cream,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 10,
+    elevation: 2,
+  },
+  addFriendsBtnText: {
+    fontSize: 16,
+    color: COLORS.accent,
+    fontFamily: "Rimma_sans",
+  },
+  friendSelectorCard: {
     backgroundColor: COLORS.card,
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 10,
     gap: 8,
     elevation: 3,
   },
-  friendBadgeText: { fontSize: 14, color: COLORS.text, fontFamily: "Rimma_sans" },
+  noFriendsText: {
+    fontSize: 14,
+    color: COLORS.muted,
+    textAlign: "center",
+    paddingVertical: 12,
+  },
+  friendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    gap: 10,
+    borderRadius: 10,
+  },
+  friendRowSelected: {
+    backgroundColor: COLORS.cream,
+  },
+  friendName: {
+    flex: 1,
+    fontSize: 16,
+    color: COLORS.text,
+    fontFamily: "Rimma_sans",
+  },
+  friendNameSelected: {
+    color: COLORS.accent,
+  },
   errorCard: {
     flexDirection: "row",
     alignItems: "center",
