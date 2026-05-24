@@ -9,6 +9,7 @@ import {
   updateDoc,
   where,
   orderBy,
+  limit,
   addDoc,
 } from "firebase/firestore";
 
@@ -53,7 +54,7 @@ export class FirebaseChallengeRepository {
       {
         userId: user.uid,
         displayName: user.displayName || user.email || "Пользователь",
-        photoUrl: user.photoURL || undefined,
+        photoUrl: user.photoURL || null,
         joinedAt: new Date().toISOString(),
         currentValue: 0,
       },
@@ -94,15 +95,65 @@ export class FirebaseChallengeRepository {
     return snapshot.docs.map((d) => challengeFromDoc(d.id, d.data()));
   }
 
-  async getUserChallenges(userId: string): Promise<Challenge[]> {
-    const q = query(
-      this.challengesCol,
-      where("participants", "array-contains", { userId }),
-      orderBy("createdAt", "desc"),
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => challengeFromDoc(d.id, d.data()));
-  }
+   async getUserChallenges(userId: string): Promise<Challenge[]> {
+     try {
+       // Get challenges where user is creator (reliable query)
+       const creatorQ = query(
+         this.challengesCol,
+         where("creatorId", "==", userId),
+         orderBy("createdAt", "desc")
+       );
+       const creatorSnapshot = await getDocs(creatorQ);
+       const creatorChallenges = creatorSnapshot.docs.map((d) => 
+         challengeFromDoc(d.id, d.data())
+       );
+
+       // Get recent challenges to check for participant matches
+       // We limit to avoid loading too much data; adjust as needed
+       const recentQ = query(
+         this.challengesCol,
+         orderBy("createdAt", "desc"),
+         limit(50) // Adjust this limit based on expected usage
+       );
+       const recentSnapshot = await getDocs(recentQ);
+       const recentChallenges = recentSnapshot.docs.map((d) => 
+         challengeFromDoc(d.id, d.data())
+       );
+
+       // Filter for challenges where user is a participant
+       const participantChallenges = recentChallenges.filter(challenge =>
+         challenge.participants.some(p => p.userId === userId)
+       );
+
+       // Combine and deduplicate by challenge ID
+       const allChallenges = [...creatorChallenges, ...participantChallenges];
+       const seenIds = new Set<string>();
+       const uniqueChallenges = allChallenges.filter(challenge => {
+         if (seenIds.has(challenge.id)) {
+           return false;
+         }
+         seenIds.add(challenge.id);
+         return true;
+       });
+
+       // Sort by createdAt descending
+       return uniqueChallenges.sort((a, b) => 
+         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+       );
+     } catch (error) {
+       console.error("Error in getUserChallenges:", error);
+       // Fallback to just creator challenges on error
+       const creatorQ = query(
+         this.challengesCol,
+         where("creatorId", "==", userId),
+         orderBy("createdAt", "desc")
+       );
+       const creatorSnapshot = await getDocs(creatorQ);
+       return creatorSnapshot.docs.map((d) => 
+         challengeFromDoc(d.id, d.data())
+       );
+     }
+   }
 
   async joinChallenge(challengeId: string): Promise<void> {
     const auth = getFirebaseAuth();
@@ -120,7 +171,7 @@ export class FirebaseChallengeRepository {
     const newParticipant: ChallengeParticipant = {
       userId: user.uid,
       displayName: user.displayName || user.email || "Пользователь",
-      photoUrl: user.photoURL || undefined,
+      photoUrl: user.photoURL || null,
       joinedAt: new Date().toISOString(),
       currentValue: 0,
     };

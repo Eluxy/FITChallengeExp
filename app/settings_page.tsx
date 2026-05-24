@@ -1,5 +1,4 @@
 import { useAuth } from "@/src/context/auth-context";
-import { scheduleDailyReminder } from "@/src/services/notifications/notification-service";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -73,11 +72,7 @@ export default function SettingsPage() {
           <View style={styles.divider} />
           <Pressable
             style={styles.row}
-            onPress={() => Alert.alert(
-              "Уведомления",
-              `Ежедневное напоминание: 20:00\n\nДоступны каналы:\n• Челленджи\n• Социальные\n• Достижения`,
-              [{ text: "OK" }]
-            )}
+            onPress={() => router.push("/notification-settings_page")}
           >
             <MaterialCommunityIcons name="bell-outline" size={22} color={COLORS.accent} />
             <Text style={styles.rowText}>Уведомления</Text>
@@ -86,11 +81,7 @@ export default function SettingsPage() {
           <View style={styles.divider} />
           <Pressable
             style={styles.row}
-            onPress={() => Alert.alert(
-              "Конфиденциальность",
-              "Ваши данные синхронизируются через Google Fit и Firebase.\n\nДанные не передаются третьим лицам.",
-              [{ text: "OK" }]
-            )}
+            onPress={() => router.push("/privacy_page")}
           >
             <MaterialCommunityIcons name="shield-outline" size={22} color={COLORS.accent} />
             <Text style={styles.rowText}>Конфиденциальность</Text>
@@ -113,11 +104,7 @@ export default function SettingsPage() {
           <View style={styles.divider} />
           <Pressable
             style={styles.row}
-            onPress={() => Alert.alert(
-              "Тема",
-              "Автоматически: светлая/тёмная в зависимости от настроек системы",
-              [{ text: "OK" }]
-            )}
+            onPress={() => router.push("/theme_page")}
           >
             <MaterialCommunityIcons name="theme-light-dark" size={22} color={COLORS.accent} />
             <Text style={styles.rowText}>Тема оформления</Text>

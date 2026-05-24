@@ -4,7 +4,7 @@ export type ChallengeStatus = "pending" | "active" | "completed" | "cancelled";
 export type ChallengeParticipant = {
   userId: string;
   displayName: string;
-  photoUrl?: string;
+  photoUrl?: string | null;
   joinedAt: string;
   currentValue: number;
 };

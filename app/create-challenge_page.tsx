@@ -136,7 +136,7 @@ export default function CreateChallengePage() {
         {
           userId: currentUser.uid,
           displayName: currentUser.displayName || currentUser.email || "Пользователь",
-          photoUrl: currentUser.photoURL || undefined,
+          photoUrl: currentUser.photoURL || null,
           joinedAt: new Date().toISOString(),
           currentValue: 0,
         },
@@ -147,7 +147,7 @@ export default function CreateChallengePage() {
         participants.push({
           userId: friend.userId,
           displayName: friend.displayName,
-          photoUrl: friend.photoUrl,
+          photoUrl: friend.photoUrl ?? null,
           joinedAt: new Date().toISOString(),
           currentValue: 0,
         });

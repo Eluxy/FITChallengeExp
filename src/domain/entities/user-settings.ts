@@ -12,7 +12,7 @@ export type UserProfile = {
   heightCm: number;
   weightKg: number;
   goals: UserGoals;
-  photoUrl?: string;
+  photoUrl?: string | null;
   createdAt: string;
 };
 

@@ -6,36 +6,75 @@ import {
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Appearance, type ColorSchemeName } from "react-native";
 import "react-native-reanimated";
 
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import { AuthProvider } from "@/src/context/auth-context";
-import { setupNotifications, scheduleDailyReminder } from "@/src/services/notifications/notification-service";
+import {
+  setupNotifications,
+  scheduleDailyReminder,
+} from "@/src/services/notifications/notification-service";
+import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
 export const unstable_settings = {
   anchor: "(tabs)",
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const [fontsLoaded] = useFonts({
     Rimma_sans: require("../assets/fonts/RIMMA_SANS-BOLD.ttf"),
   });
 
+  const [themeOverride, setThemeOverride] = useState<ColorSchemeName | null>(null);
+
   useEffect(() => {
-    setupNotifications().then(() => {
-      scheduleDailyReminder(20, 0);
+    const unsubscribe = onAuthStateChanged(getFirebaseAuth(), async (user) => {
+      if (!user) {
+        scheduleDailyReminder(20, 0);
+        return;
+      }
+
+      const db = getFirebaseDb();
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if (!snap.exists()) {
+        scheduleDailyReminder(20, 0);
+        return;
+      }
+
+      const data = snap.data();
+
+      if (data.theme === "light" || data.theme === "dark") {
+        setThemeOverride(data.theme);
+        Appearance.setColorScheme(data.theme);
+      } else {
+        setThemeOverride(null);
+        Appearance.setColorScheme(null);
+      }
+
+      if (data.reminderEnabled) {
+        await scheduleDailyReminder(data.reminderHour ?? 20, data.reminderMinute ?? 0);
+      } else {
+        await scheduleDailyReminder(20, 0);
+      }
     });
+
+    setupNotifications();
+
+    return () => unsubscribe();
   }, []);
 
   if (!fontsLoaded) {
     return null;
   }
 
+  const effectiveTheme = themeOverride ?? Appearance.getColorScheme();
+
   return (
     <AuthProvider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={effectiveTheme === "dark" ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
@@ -51,6 +90,9 @@ export default function RootLayout() {
           <Stack.Screen name="challenge-detail_page" options={{ headerShown: false }} />
           <Stack.Screen name="chat_page" options={{ headerShown: false }} />
           <Stack.Screen name="friend-requests_page" options={{ headerShown: false }} />
+          <Stack.Screen name="notification-settings_page" options={{ headerShown: false }} />
+          <Stack.Screen name="privacy_page" options={{ headerShown: false }} />
+          <Stack.Screen name="theme_page" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
