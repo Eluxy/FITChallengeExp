@@ -64,9 +64,9 @@ export function useGoogleFitStatsViewModel() {
 
   const checkSignedIn = useCallback(async () => {
     try {
-      const isSignedIn = await GoogleSignin.isSignedIn();
-      
-      if (isSignedIn) {
+      const hasPrevious = GoogleSignin.hasPreviousSignIn();
+
+      if (hasPrevious) {
         const tokens = await GoogleSignin.getTokens();
         const token = tokens.accessToken;
         

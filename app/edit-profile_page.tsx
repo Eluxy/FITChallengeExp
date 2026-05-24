@@ -177,7 +177,7 @@ export default function EditProfilePage() {
           dailyCalories: 2000,
           dailyDistanceKm: 5,
         },
-        photoUrl: photoUrl || undefined,
+        photoUrl: photoUrl || null,
         createdAt: new Date().toISOString(),
       };
 

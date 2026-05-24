@@ -8,6 +8,7 @@ import {
   addNotificationResponseReceivedListener,
   scheduleNotificationAsync,
   NotificationTriggerInput,
+  SchedulableTriggerInputTypes,
   cancelAllScheduledNotificationsAsync,
 } from "expo-notifications";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -116,7 +117,7 @@ export async function scheduleDailyReminder(hour: number = 20, minute: number = 
   }
 
   const trigger: NotificationTriggerInput = {
-    type: "daily",
+    type: SchedulableTriggerInputTypes.DAILY,
     hour,
     minute,
   };
