@@ -6,10 +6,10 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 
 export default function TabLayout() {
   const retro = {
-    tabBarActiveTintColor: "#D33F24",
-    tabBarInactiveTintColor: "#8B7355",
+    tabBarActiveTintColor: "#ED7C30",
+    tabBarInactiveTintColor: "#B35A22",
     tabBarStyle: {
-      backgroundColor: "#FFF5E1",
+      backgroundColor: "#F8EDAD",
       borderTopColor: "#E8D4A8",
     },
   };
@@ -51,14 +51,8 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="account_page"
-        options={{ href: null }}
-      />
-      <Tabs.Screen
-        name="leaderboard_page"
-        options={{ href: null }}
-      />
+      <Tabs.Screen name="account_page" options={{ href: null }} />
+      <Tabs.Screen name="leaderboard_page" options={{ href: null }} />
       <Tabs.Screen
         name="challenges_page"
         options={{

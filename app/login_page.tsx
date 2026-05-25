@@ -1,7 +1,6 @@
-import { useAuth } from "@/src/context/auth-context";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useLoginViewModel } from "@/src/presentation/view-models/use-login-view-model";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -27,28 +26,17 @@ const COLORS = {
 export default function LoginPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signInWithEmail, signInWithGoogle, isLoading, error, clearError, isConnected } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  useEffect(() => {
-    if (isConnected) {
-      if (router.canGoBack()) {
-        router.dismissAll();
-      }
-      router.replace("/(tabs)");
+  const {
+    email, setEmail,
+    password, setPassword,
+    isLoading, error,
+    handleEmailLogin, handleGoogleLogin,
+  } = useLoginViewModel(() => {
+    if (router.canGoBack()) {
+      router.dismissAll();
     }
-  }, [isConnected]);
-
-  const handleEmailLogin = async () => {
-    clearError();
-    await signInWithEmail(email.trim(), password);
-  };
-
-  const handleGoogleLogin = async () => {
-    clearError();
-    await signInWithGoogle();
-  };
+    router.replace("/(tabs)");
+  });
 
   return (
     <KeyboardAvoidingView

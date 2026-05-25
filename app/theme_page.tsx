@@ -1,10 +1,7 @@
-import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
+import { useThemeViewModel, type ThemeOption } from "@/src/presentation/view-models/use-theme-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { useCallback, useEffect, useState } from "react";
 import {
-  Appearance,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,15 +11,13 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",
+  card: "#F8EDAD",
+  text: "#ED7C30",
+  accent: "#ED7C30",
+  muted: "#B35A22",
 };
-
-type ThemeOption = "system" | "light" | "dark";
 
 const THEME_OPTIONS: { key: ThemeOption; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
   { key: "system", label: "Системная", icon: "theme-light-dark" },
@@ -33,47 +28,7 @@ const THEME_OPTIONS: { key: ThemeOption; label: string; icon: keyof typeof Mater
 export default function ThemePage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-
-  const [selected, setSelected] = useState<ThemeOption>("system");
-
-  useEffect(() => {
-    const loadTheme = async () => {
-      const auth = getFirebaseAuth();
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const db = getFirebaseDb();
-      const snap = await getDoc(doc(db, "users", user.uid));
-      if (snap.exists()) {
-        const theme = snap.data().theme as ThemeOption | undefined;
-        if (theme === "light" || theme === "dark") {
-          setSelected(theme);
-        }
-      }
-    };
-    loadTheme();
-  }, []);
-
-  const handleSelect = useCallback(async (option: ThemeOption) => {
-    setSelected(option);
-
-    if (option === "system") {
-      Appearance.setColorScheme(null);
-    } else {
-      Appearance.setColorScheme(option);
-    }
-
-    const auth = getFirebaseAuth();
-    const user = auth.currentUser;
-    if (user) {
-      const db = getFirebaseDb();
-      await setDoc(
-        doc(db, "users", user.uid),
-        { theme: option },
-        { merge: true },
-      );
-    }
-  }, []);
+  const { selected, handleSelect } = useThemeViewModel();
 
   return (
     <ScrollView

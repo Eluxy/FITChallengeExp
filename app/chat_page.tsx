@@ -1,7 +1,8 @@
-import { FirebaseChatRepository, type ChatMessage } from "@/src/data/repositories/firebase-chat-repository";
+import { useServices } from "@/src/context/service-provider";
+import { useChatViewModel } from "@/src/presentation/view-models/use-chat-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -15,12 +16,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",
+  card: "#F8EDAD",
+  text: "#ED7C30",
+  accent: "#ED7C30",
+  muted: "#B35A22",
   green: "#48B75A",
 };
 
@@ -31,32 +32,13 @@ export default function ChatPage() {
   }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [text, setText] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const repo = useRef(new FirebaseChatRepository());
+  const { chatRepository } = useServices();
   const flatListRef = useRef<FlatList>(null);
 
-  useEffect(() => {
-    if (!challengeId) return;
-    setIsLoading(false);
-
-    const unsubscribe = repo.current.subscribeToMessages(challengeId, (msgs) => {
-      setMessages(msgs);
-    });
-
-    return unsubscribe;
-  }, [challengeId]);
-
-  const handleSend = useCallback(async () => {
-    if (!text.trim() || !challengeId) return;
-    try {
-      await repo.current.sendMessage(challengeId, text.trim());
-      setText("");
-    } catch (err) {
-      console.log("Error sending message:", err);
-    }
-  }, [text, challengeId]);
+  const { messages, text, setText, isLoading, handleSend } = useChatViewModel(
+    chatRepository,
+    challengeId,
+  );
 
   return (
     <KeyboardAvoidingView

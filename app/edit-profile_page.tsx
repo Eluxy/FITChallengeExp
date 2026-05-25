@@ -1,14 +1,9 @@
-import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { updateProfile } from "firebase/auth";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import * as ImagePicker from "expo-image-picker";
-import { useEffect, useState } from "react";
+import { Alert } from "react-native";
+import { useEditProfileViewModel } from "@/src/presentation/view-models/use-edit-profile-view-model";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,182 +14,41 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { UserProfile } from "@/src/domain/entities/user-settings";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",
+  card: "#F8EDAD",
+  text: "#ED7C30",
+  accent: "#ED7C30",
+  muted: "#B35A22",
 };
 
 export default function EditProfilePage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const {
+    isLoading,
+    isSaving,
+    isUploadingPhoto,
+    name, setName,
+    age, setAge,
+    gender, setGender,
+    heightCm, setHeightCm,
+    weightKg, setWeightKg,
+    photoUrl,
+    pickImage,
+    saveProfile,
+  } = useEditProfileViewModel();
 
-  const [name, setName] = useState("");
-  const [age, setAge] = useState("");
-  const [gender, setGender] = useState<string>("");
-  const [heightCm, setHeightCm] = useState("");
-  const [weightKg, setWeightKg] = useState("");
-  const [photoUrl, setPhotoUrl] = useState<string>("");
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
-    try {
-      const auth = getFirebaseAuth();
-      const user = auth.currentUser;
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      const db = getFirebaseDb();
-      const docRef = doc(db, "users", user.uid);
-      const docSnap = await getDoc(docRef);
-
-      if (docSnap.exists()) {
-        const data = docSnap.data() as UserProfile;
-        setName(data.name || user.displayName || "");
-        setAge(data.age ? String(data.age) : "");
-        setGender(data.gender || "");
-        setHeightCm(data.heightCm ? String(data.heightCm) : "");
-        setWeightKg(data.weightKg ? String(data.weightKg) : "");
-        setPhotoUrl(data.photoUrl || user.photoURL || "");
-      } else {
-        setName(user.displayName || "");
-        setPhotoUrl(user.photoURL || "");
-      }
-    } catch (err) {
-      console.log("Error loading profile:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Ошибка", "Нужен доступ к фото для загрузки аватара");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: "images",
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setIsUploadingPhoto(true);
-      try {
-        const auth = getFirebaseAuth();
-        const user = auth.currentUser;
-        if (!user) return;
-
-        const response = await fetch(result.assets[0].uri);
-        const blob = await response.blob();
-
-        const storage = getStorage();
-        const storageRef = ref(storage, `avatars/${user.uid}`);
-        await uploadBytes(storageRef, blob);
-        const downloadURL = await getDownloadURL(storageRef);
-
-        setPhotoUrl(downloadURL);
-        await updateProfile(user, { photoURL: downloadURL });
-      } catch (err) {
-        console.log("Error uploading photo:", err);
-        Alert.alert("Ошибка", "Не удалось загрузить фото");
-      } finally {
-        setIsUploadingPhoto(false);
-      }
-    }
-  };
-
-  const validateAndSave = () => {
-    if (!name.trim()) {
-      Alert.alert("Ошибка", "Введите имя");
-      return;
-    }
-    if (age) {
-      const ageNum = parseInt(age);
-      if (isNaN(ageNum) || ageNum < 1 || ageNum > 150) {
-        Alert.alert("Ошибка", "Введите корректный возраст (1-150)");
-        return;
-      }
-    }
-    if (heightCm) {
-      const heightNum = parseFloat(heightCm);
-      if (isNaN(heightNum) || heightNum < 50 || heightNum > 250) {
-        Alert.alert("Ошибка", "Введите корректный рост (50-250 см)");
-        return;
-      }
-    }
-    if (weightKg) {
-      const weightNum = parseFloat(weightKg);
-      if (isNaN(weightNum) || weightNum < 20 || weightNum > 500) {
-        Alert.alert("Ошибка", "Введите корректный вес (20-500 кг)");
-        return;
-      }
-    }
-
-    Alert.alert(
-      "Сохранить изменения?",
-      "Вы уверены, что хотите сохранить изменения в профиле?",
-      [
-        { text: "Отмена", style: "cancel" },
-        { text: "Сохранить", onPress: handleSave },
-      ],
-    );
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const auth = getFirebaseAuth();
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const db = getFirebaseDb();
-      const profileData: UserProfile = {
-        name: name.trim() || user.displayName || "",
-        email: user.email || "",
-        age: parseInt(age) || 0,
-        gender: gender as UserProfile["gender"],
-        heightCm: parseInt(heightCm) || 0,
-        weightKg: parseInt(weightKg) || 0,
-        goals: {
-          dailySteps: 10000,
-          dailyCalories: 2000,
-          dailyDistanceKm: 5,
-        },
-        photoUrl: photoUrl || null,
-        createdAt: new Date().toISOString(),
-      };
-
-      await setDoc(doc(db, "users", user.uid), profileData, { merge: true });
-
-      if (name.trim() && name.trim() !== user.displayName) {
-        await updateProfile(user, { displayName: name.trim() });
-      }
-
+  const validateAndSave = async () => {
+    const error = await saveProfile();
+    if (error) {
+      Alert.alert("Ошибка", error);
+    } else {
       Alert.alert("Профиль сохранён", "Ваши изменения успешно сохранены", [
         { text: "OK", onPress: () => router.back() },
       ]);
-    } catch (err: any) {
-      console.log("Error saving profile:", err);
-      Alert.alert("Ошибка", err.message || "Не удалось сохранить профиль");
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -372,7 +226,7 @@ const styles = StyleSheet.create({
   },
   photoButtonText: {
     fontSize: 14,
-    color: "#FFF",
+    color: COLORS.bg,
     fontFamily: "Rimma_sans",
   },
   formCard: {
@@ -404,7 +258,7 @@ const styles = StyleSheet.create({
   },
   genderActive: { backgroundColor: COLORS.accent },
   genderText: { fontSize: 16, color: COLORS.text, fontFamily: "Rimma_sans" },
-  genderTextActive: { color: "#FFF" },
+  genderTextActive: { color: COLORS.bg },
   saveBtn: {
     backgroundColor: COLORS.accent,
     borderRadius: 12,
@@ -412,7 +266,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 8,
   },
-  saveBtnText: { fontSize: 18, color: "#FFF", fontFamily: "Rimma_sans" },
+  saveBtnText: { fontSize: 18, color: COLORS.bg, fontFamily: "Rimma_sans" },
   btnPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
   btnDisabled: { opacity: 0.6 },
 });

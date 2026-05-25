@@ -1,20 +1,18 @@
 import { useAuth } from "@/src/context/auth-context";
 import { useGoogleFitData } from "@/src/presentation/view-models/use-google-fit-data";
-import { ACHIEVEMENTS, type AchievementCheckStats } from "@/src/services/gamification/achievements";
-import { getLevelInfo, getLevelProgress, calculateTotalDailyXp } from "@/src/services/gamification/points-system";
+import { useAchievementsViewModel } from "@/src/presentation/view-models/use-achievements-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",
+  card: "#F8EDAD",
+  text: "#ED7C30",
+  accent: "#ED7C30",
+  muted: "#B35A22",
   green: "#48B75A",
   gold: "#F5C518",
 };
@@ -25,30 +23,15 @@ export default function AchievementsPage() {
   const { isConnected } = useAuth();
   const { steps, calories, distance } = useGoogleFitData();
 
-  const checkStats: AchievementCheckStats = useMemo(() => ({
-    totalSteps: steps,
-    totalCalories: calories,
-    totalDistanceMeters: distance ?? 0,
-    currentDaySteps: steps,
-    currentDayCalories: calories,
-    streakDays: 0,
-    challengesWon: 0,
-    challengesParticipated: 0,
-    friendsCount: 0,
-    workoutsLogged: 0,
-  }), [steps, calories, distance]);
-
-  const dailyXp = calculateTotalDailyXp(steps, calories);
-  const levelInfo = getLevelInfo(dailyXp);
-  const levelProgress = getLevelProgress(dailyXp);
-
-  const unlockedAchievements = useMemo(
-    () => ACHIEVEMENTS.filter((a) => a.condition(checkStats)),
-    [checkStats],
-  );
-
-  const unlockedCount = unlockedAchievements.length;
-  const totalCount = ACHIEVEMENTS.length;
+  const {
+    checkStats,
+    dailyXp,
+    levelInfo,
+    levelProgress,
+    achievements,
+    unlockedCount,
+    totalCount,
+  } = useAchievementsViewModel(steps, calories, distance);
 
   return (
     <ScrollView
@@ -106,7 +89,7 @@ export default function AchievementsPage() {
         </View>
       ) : (
         <View style={styles.grid}>
-          {ACHIEVEMENTS.map((achievement) => {
+          {achievements.map((achievement) => {
             const progress = achievement.progress(checkStats);
             const isUnlocked = achievement.condition(checkStats);
             const progressPercent = Math.min(Math.round((progress.current / progress.total) * 100), 100);

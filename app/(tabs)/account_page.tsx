@@ -6,12 +6,12 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",  // Changed to match bg
+  card: "#F8EDAD",   // Changed to match bg
+  text: "#ED7C30",
+  accent: "#ED7C30", // Changed to match text
+  muted: "#B35A22",  // Darker shade for muted text
 } as const;
 
 export default function AccountPage() {
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     fontSize: 16,
-    color: "#FFFFFF",
+    color: COLORS.bg,
     fontFamily: "Rimma_sans",
   },
   emailLoginButton: {
@@ -240,6 +240,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 240,
     alignItems: "center",
+    justifyContent: "center",
   },
   emailLoginButtonText: {
     fontSize: 16,

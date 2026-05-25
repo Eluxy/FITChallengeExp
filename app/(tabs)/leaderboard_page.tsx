@@ -1,29 +1,27 @@
 import { useAuth } from "@/src/context/auth-context";
-import { fetchDailyProgressRange } from "@/src/data/firebase/firestore-rest";
+import { useLeaderboardViewModel } from "@/src/presentation/view-models/use-leaderboard-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",
+  card: "#F8EDAD",
+  text: "#ED7C30",
+  accent: "#ED7C30",
+  muted: "#B35A22",
   green: "#48B75A",
   gold: "#F5C518",
   silver: "#A8A9AD",
   bronze: "#CD7F32",
 } as const;
-
-type LeaderEntry = {
-  userId: string;
-  displayName: string;
-  steps: number;
-  calories: number;
-};
 
 function getMedalColor(index: number) {
   if (index === 0) return COLORS.gold;
@@ -39,64 +37,13 @@ function getMedalIcon(index: number) {
   return "account";
 }
 
-function getTodayRange() {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 1);
-  return {
-    startDate: start.toISOString().slice(0, 10),
-    endDate: end.toISOString().slice(0, 10),
-  };
-}
-
 export default function LeaderboardPage() {
   const insets = useSafeAreaInsets();
   const { isConnected, userInfo } = useAuth();
-  const [leaders, setLeaders] = useState<LeaderEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const myUserId = userInfo?.email?.replace(/[@.]/g, "_") ?? "";
-
-  const loadLeaderboard = useCallback(async () => {
-    if (!isConnected) {
-      setError("Войдите в аккаунт для просмотра лидерборда");
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const { startDate, endDate } = getTodayRange();
-      // Загружаем данные всех пользователей за сегодня
-      const rows = await fetchDailyProgressRange({
-        userId: myUserId,
-        startDate,
-        endDate,
-      });
-
-      const entries: LeaderEntry[] = rows.map((row) => ({
-        userId: (row as any).userId ?? "",
-        displayName: (row as any).displayName ?? "Пользователь",
-        steps: row.steps,
-        calories: row.calories,
-      }));
-
-      // Сортируем по шагам
-      entries.sort((a, b) => b.steps - a.steps);
-      setLeaders(entries);
-    } catch {
-      setError("Не удалось загрузить лидерборд");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isConnected, myUserId]);
-
-  useEffect(() => {
-    void loadLeaderboard();
-  }, [loadLeaderboard]);
+  const { leaders, isLoading, error, myUserId, refresh } = useLeaderboardViewModel(
+    userInfo?.email,
+    isConnected,
+  );
 
   return (
     <ScrollView
@@ -105,9 +52,18 @@ export default function LeaderboardPage() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <MaterialCommunityIcons name="trophy-outline" size={26} color={COLORS.text} />
+        <MaterialCommunityIcons
+          name="trophy-outline"
+          size={26}
+          color={COLORS.text}
+        />
         <Text style={styles.headerTitle}>ЛИДЕРБОРД</Text>
-        <MaterialCommunityIcons name="refresh" size={24} color={COLORS.text} onPress={loadLeaderboard} />
+        <MaterialCommunityIcons
+          name="refresh"
+          size={24}
+          color={COLORS.text}
+          onPress={refresh}
+        />
       </View>
 
       <View style={styles.card}>
@@ -115,8 +71,14 @@ export default function LeaderboardPage() {
 
         {!isConnected ? (
           <View style={styles.emptyState}>
-            <MaterialCommunityIcons name="account-off-outline" size={48} color={COLORS.muted} />
-            <Text style={styles.emptyText}>Войдите в аккаунт для просмотра лидерборда</Text>
+            <MaterialCommunityIcons
+              name="account-off-outline"
+              size={48}
+              color={COLORS.muted}
+            />
+            <Text style={styles.emptyText}>
+              Войдите в аккаунт для просмотра лидерборда
+            </Text>
           </View>
         ) : isLoading ? (
           <View style={styles.emptyState}>
@@ -125,22 +87,27 @@ export default function LeaderboardPage() {
           </View>
         ) : error ? (
           <View style={styles.emptyState}>
-            <MaterialCommunityIcons name="alert-circle-outline" size={48} color={COLORS.muted} />
+            <MaterialCommunityIcons
+              name="alert-circle-outline"
+              size={48}
+              color={COLORS.muted}
+            />
             <Text style={styles.emptyText}>{error}</Text>
           </View>
         ) : leaders.length === 0 ? (
           <View style={styles.emptyState}>
-            <MaterialCommunityIcons name="trophy-outline" size={48} color={COLORS.muted} />
+            <MaterialCommunityIcons
+              name="trophy-outline"
+              size={48}
+              color={COLORS.muted}
+            />
             <Text style={styles.emptyText}>Пока нет данных за сегодня</Text>
           </View>
         ) : (
           leaders.map((entry, index) => (
             <View
               key={entry.userId || index}
-              style={[
-                styles.row,
-                entry.userId === myUserId && styles.myRow,
-              ]}
+              style={[styles.row, entry.userId === myUserId && styles.myRow]}
             >
               <MaterialCommunityIcons
                 name={getMedalIcon(index) as any}
@@ -154,7 +121,8 @@ export default function LeaderboardPage() {
                   {entry.userId === myUserId ? " (Вы)" : ""}
                 </Text>
                 <Text style={styles.rowStats}>
-                  {entry.steps.toLocaleString("ru-RU")} шагов • {entry.calories.toLocaleString("ru-RU")} ккал
+                  {entry.steps.toLocaleString("ru-RU")} шагов •{" "}
+                  {entry.calories.toLocaleString("ru-RU")} ккал
                 </Text>
               </View>
               <Text style={styles.rowRank}>#{index + 1}</Text>
@@ -210,7 +178,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#EBDCC2",
   },
-  myRow: { backgroundColor: "#FFF0E8", borderRadius: 12, paddingHorizontal: 8 },
+  myRow: {
+    backgroundColor: COLORS.cream,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+  },
   medal: { marginRight: 10 },
   rowInfo: { flex: 1 },
   rowName: { fontSize: 20, color: COLORS.text, fontFamily: "Rimma_sans" },

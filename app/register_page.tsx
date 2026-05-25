@@ -1,10 +1,9 @@
-import { useAuth } from "@/src/context/auth-context";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { Alert } from "react-native";
+import { useRegisterViewModel } from "@/src/presentation/view-models/use-register-view-model";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -17,69 +16,42 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",
+  card: "#F8EDAD",
+  text: "#ED7C30",
+  accent: "#ED7C30",
+  muted: "#B35A22",
 };
 
 export default function RegisterPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { registerWithEmail, isLoading, error, clearError } = useAuth();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [localError, setLocalError] = useState<string | null>(null);
-
-  const handleRegister = async () => {
-    clearError();
-    setLocalError(null);
-
-    if (!name.trim()) {
-      setLocalError("Введите имя");
-      return;
-    }
-    if (!email.trim()) {
-      setLocalError("Введите email");
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setLocalError("Введите корректный email");
-      return;
-    }
-    if (password.length < 6) {
-      setLocalError("Пароль должен быть минимум 6 символов");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setLocalError("Пароли не совпадают");
-      return;
-    }
-
-    const success = await registerWithEmail(email.trim(), password, name.trim());
-
-    if (success) {
-      Alert.alert(
-        "Регистрация успешна!",
-        `Добро пожаловать, ${name.trim()}!`,
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              if (router.canGoBack()) {
-                router.dismissAll();
-              }
-              router.replace("/(tabs)");
-            },
+  const {
+    name, setName,
+    email, setEmail,
+    password, setPassword,
+    confirmPassword, setConfirmPassword,
+    isLoading,
+    error, localError,
+    handleRegister,
+  } = useRegisterViewModel(() => {
+    Alert.alert(
+      "Регистрация успешна!",
+      `Добро пожаловать, ${name.trim()}!`,
+      [
+        {
+          text: "OK",
+          onPress: () => {
+            if (router.canGoBack()) {
+              router.dismissAll();
+            }
+            router.replace("/(tabs)");
           },
-        ],
-      );
-    }
-  };
+        },
+      ],
+    );
+  });
 
   const displayError = localError || error;
 

@@ -1,21 +1,23 @@
 import { useAuth } from "@/src/context/auth-context";
+import { useSwipeableTab } from "@/src/utils/use-swipeable-tab";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD", // Changed to match bg
+  card: "#F8EDAD", // Changed to match bg
+  text: "#ED7C30",
+  accent: "#ED7C30", // Changed to match text
+  muted: "#B35A22", // Darker shade for muted text
   green: "#48B75A",
 } as const;
 
 export default function DevicePage() {
   const insets = useSafeAreaInsets();
   const { isConnected } = useAuth();
+  const swipeHandlers = useSwipeableTab("device_page");
 
   const DEVICES = isConnected
     ? [
@@ -29,9 +31,9 @@ export default function DevicePage() {
       style={[styles.root, { paddingTop: insets.top + 8 }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      {...swipeHandlers}
     >
       <View style={styles.header}>
-        <MaterialCommunityIcons name="watch-variant" size={26} color={COLORS.text} />
         <Text style={styles.headerTitle}>УСТРОЙСТВА</Text>
         <MaterialCommunityIcons
           name="plus-circle-outline"
@@ -44,15 +46,25 @@ export default function DevicePage() {
       <View style={styles.card}>
         {!isConnected ? (
           <View style={styles.notConnectedCard}>
-            <MaterialCommunityIcons name="watch-variant" size={48} color={COLORS.muted} />
+            <MaterialCommunityIcons
+              name="watch-variant"
+              size={48}
+              color={COLORS.muted}
+            />
             <Text style={styles.notConnectedText}>
               Войдите в аккаунт, чтобы подключить устройства
             </Text>
           </View>
         ) : DEVICES.length === 0 ? (
           <View style={styles.notConnectedCard}>
-            <MaterialCommunityIcons name="watch-variant" size={48} color={COLORS.muted} />
-            <Text style={styles.notConnectedText}>Нет подключенных устройств</Text>
+            <MaterialCommunityIcons
+              name="watch-variant"
+              size={48}
+              color={COLORS.muted}
+            />
+            <Text style={styles.notConnectedText}>
+              Нет подключенных устройств
+            </Text>
           </View>
         ) : (
           DEVICES.map((device) => (
