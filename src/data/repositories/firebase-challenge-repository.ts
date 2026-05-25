@@ -12,6 +12,8 @@ import {
   orderBy,
   limit,
   addDoc,
+  deleteDoc,
+  writeBatch,
 } from "firebase/firestore";
 
 function challengeFromDoc(id: string, data: any): Challenge {
@@ -192,7 +194,17 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
       p.userId === userId ? { ...p, currentValue } : p,
     );
 
+    if (challenge.status !== "active" && challenge.status !== "pending") return;
+
     await updateDoc(docRef, { participants: updatedParticipants });
+
+    if (currentValue >= challenge.targetValue) {
+      await updateDoc(docRef, {
+        status: "completed",
+        winnerId: userId,
+        completedAt: new Date().toISOString(),
+      });
+    }
   }
 
   async completeChallenge(challengeId: string, winnerId: string): Promise<void> {
@@ -225,6 +237,71 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
     return snapshot.docs.map((d) => challengeFromDoc(d.id, d.data()));
   }
 
+  async getCompletedChallenges(userId: string): Promise<Challenge[]> {
+    try {
+      const creatorQ = query(
+        this.challengesCol,
+        where("status", "==", "completed"),
+        where("creatorId", "==", userId),
+      );
+      const creatorSnapshot = await getDocs(creatorQ);
+      const creatorChallenges = creatorSnapshot.docs.map((d) =>
+        challengeFromDoc(d.id, d.data()),
+      );
+
+      const allQ = query(
+        this.challengesCol,
+        where("status", "==", "completed"),
+        limit(50),
+      );
+      const allSnapshot = await getDocs(allQ);
+      const participantChallenges = allSnapshot.docs
+        .map((d) => challengeFromDoc(d.id, d.data()))
+        .filter((challenge) =>
+          challenge.participants.some((p) => p.userId === userId) &&
+          challenge.creatorId !== userId,
+        );
+
+      const allChallenges = [...creatorChallenges, ...participantChallenges];
+      const seenIds = new Set<string>();
+      return allChallenges
+        .filter((challenge) => {
+          if (seenIds.has(challenge.id)) return false;
+          seenIds.add(challenge.id);
+          return true;
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+    } catch (error) {
+      console.error("Error in getCompletedChallenges:", error);
+      return [];
+    }
+  }
+
+  async deleteChallenge(challengeId: string): Promise<void> {
+    const auth = getFirebaseAuth();
+    const user = auth.currentUser;
+    if (!user) throw new Error("Не авторизован");
+
+    const docRef = doc(this.challengesCol, challengeId);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) throw new Error("Челлендж не найден");
+
+    const data = docSnap.data();
+    if (data.creatorId !== user.uid) {
+      throw new Error("Только создатель может удалить челлендж");
+    }
+
+    const messagesCol = collection(docRef, "messages");
+    const messagesSnap = await getDocs(messagesCol);
+    const batch = writeBatch(getFirebaseDb());
+    messagesSnap.docs.forEach((msgDoc) => batch.delete(msgDoc.ref));
+    batch.delete(docRef);
+    await batch.commit();
+  }
+
   async checkAndCompleteExpiredChallenges(): Promise<{ completed: number; winners: string[] }> {
     const now = new Date().toISOString();
     const activeQ = query(
@@ -243,19 +320,21 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
     for (const docSnap of batch) {
       const data = docSnap.data();
       const participants: ChallengeParticipant[] = data.participants ?? [];
-      if (participants.length === 0) continue;
 
-      const sorted = [...participants].sort((a, b) => b.currentValue - a.currentValue);
-      const winnerId = sorted[0].userId;
-
-      await updateDoc(doc(this.challengesCol, docSnap.id), {
+      const updateData: Record<string, any> = {
         status: "completed",
-        winnerId,
         completedAt: now,
-      });
+      };
 
+      const hasProgress = participants.some((p) => p.currentValue > 0);
+      if (hasProgress) {
+        const sorted = [...participants].sort((a, b) => b.currentValue - a.currentValue);
+        updateData.winnerId = sorted[0].userId;
+        winners.push(sorted[0].userId);
+      }
+
+      await updateDoc(doc(this.challengesCol, docSnap.id), updateData);
       completed++;
-      winners.push(winnerId);
     }
 
     return { completed, winners };

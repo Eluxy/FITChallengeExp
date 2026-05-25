@@ -27,7 +27,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: "Главная",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="house.fill" color={color} />
           ),
@@ -45,7 +45,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="device_page"
         options={{
-          title: "Devices",
+          title: "Устройства",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="bolt.horizontal.fill" color={color} />
           ),
@@ -56,7 +56,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="challenges_page"
         options={{
-          title: "Challenges",
+          title: "Вызовы",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="gearshape.fill" color={color} />
           ),

@@ -3,7 +3,7 @@ import { useServices } from "@/src/context/service-provider";
 import { useGoogleFitData } from "@/src/presentation/view-models/use-google-fit-data";
 import { useSwipeableTab } from "@/src/utils/use-swipeable-tab";
 import { useChallengesViewModel } from "@/src/presentation/view-models/use-challenges-view-model";
-import type { Challenge } from "@/src/domain/entities/challenge";
+import type { Challenge, ChallengeType } from "@/src/domain/entities/challenge";
 import {
   getChallengeUnit,
   getChallengeIcon,
@@ -13,10 +13,15 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,22 +37,81 @@ const COLORS = {
   red: "#f44336",
 };
 
-type Tab = "active" | "system" | "completed";
+type Tab = "active" | "daily" | "completed";
+
+const CHALLENGE_TYPES: { type: ChallengeType; label: string }[] = [
+  { type: "steps", label: "Шаги" },
+  { type: "distance", label: "Дистанция" },
+  { type: "calories", label: "Калории" },
+  { type: "time", label: "Время" },
+];
 
 export default function ChallengesPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { isConnected, firebaseUser } = useAuth();
+  const currentUserId = firebaseUser?.uid;
+  const { challengeRepository } = useServices();
   useGoogleFitData();
   const [activeTab, setActiveTab] = useState<Tab>("active");
-  const { challengeRepository } = useServices();
-  const currentUserId = firebaseUser?.uid;
   const swipeHandlers = useSwipeableTab("challenges_page");
 
-  const { activeChallenges, systemChallenges, isLoading, refresh } =
-    useChallengesViewModel(challengeRepository, currentUserId);
+  const {
+    activeChallenges,
+    dailyChallenges,
+    completedChallenges,
+    isLoading,
+    refresh,
+    createDailyChallenge,
+    deleteChallenge,
+  } = useChallengesViewModel(challengeRepository, currentUserId);
 
-  const renderChallengeCard = (challenge: Challenge) => {
+  const [showDailyForm, setShowDailyForm] = useState(false);
+  const [dailyType, setDailyType] = useState<ChallengeType>("steps");
+  const [dailyTarget, setDailyTarget] = useState("");
+  const [isCreatingDaily, setIsCreatingDaily] = useState(false);
+
+  const handleCreateDaily = async () => {
+    const val = parseInt(dailyTarget);
+    if (!val || val <= 0) {
+      Alert.alert("Ошибка", "Введите корректное целевое значение");
+      return;
+    }
+    setIsCreatingDaily(true);
+    try {
+      await createDailyChallenge(dailyType, val);
+      setShowDailyForm(false);
+      setDailyTarget("");
+      setDailyType("steps");
+    } catch (err: any) {
+      Alert.alert("Ошибка", err.message || "Не удалось создать");
+    } finally {
+      setIsCreatingDaily(false);
+    }
+  };
+
+  const handleDeleteChallenge = (challenge: Challenge) => {
+    Alert.alert(
+      "Удалить челлендж",
+      `Удалить "${challenge.title}"? Это действие необратимо.`,
+      [
+        { text: "Отмена", style: "cancel" },
+        {
+          text: "Удалить",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteChallenge(challenge.id);
+            } catch (err: any) {
+              Alert.alert("Ошибка", err.message);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const renderChallengeCard = (challenge: Challenge, showDelete = false) => {
     const myParticipation = challenge.participants.find(
       (p) => p.userId === currentUserId,
     );
@@ -56,6 +120,8 @@ export default function ChallengesPage() {
       challenge.targetValue > 0
         ? Math.min(Math.round((myValue / challenge.targetValue) * 100), 100)
         : 0;
+    const isCompleted = challenge.status === "completed";
+    const isCreator = challenge.creatorId === currentUserId;
 
     return (
       <Pressable
@@ -70,27 +136,120 @@ export default function ChallengesPage() {
               size={24}
               color={COLORS.accent}
             />
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.challengeTitle}>{challenge.title}</Text>
               <Text style={styles.challengeSubtitle}>
                 {challenge.targetValue.toLocaleString()}{" "}
                 {getChallengeUnit(challenge.type)}
-                {challenge.isSystem ? " • Системный" : ""}
+                {challenge.isSystem ? " • Ежедневный" : ""}
               </Text>
             </View>
           </View>
-          <Text style={styles.challengeReward}>{progress}%</Text>
+          {isCompleted && challenge.winnerId ? (
+            <Text style={styles.challengeWinner}>
+              👑 {challenge.participants.find((p) => p.userId === challenge.winnerId)?.displayName ?? "Победитель"}
+            </Text>
+          ) : isCompleted ? (
+            <Text style={[styles.challengeWinner, { color: COLORS.muted }]}>Никто не выполнил</Text>
+          ) : (
+            <Text style={styles.challengeReward}>{progress}%</Text>
+          )}
         </View>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${progress}%` }]} />
+
+        {!isCompleted && (
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${progress}%` }]} />
+          </View>
+        )}
+
+        <View style={styles.challengeBottomRow}>
+          <Text style={styles.progressText}>
+            {challenge.participants.length} участников • до{" "}
+            {new Date(challenge.endDate).toLocaleDateString("ru-RU")}
+          </Text>
+          {showDelete && isCreator && (
+            <Pressable
+              onPress={() => handleDeleteChallenge(challenge)}
+              hitSlop={8}
+              style={styles.deleteBtn}
+            >
+              <MaterialCommunityIcons name="delete-outline" size={20} color={COLORS.red} />
+            </Pressable>
+          )}
         </View>
-        <Text style={styles.progressText}>
-          {challenge.participants.length} участников • до{" "}
-          {new Date(challenge.endDate).toLocaleDateString("ru-RU")}
-        </Text>
       </Pressable>
     );
   };
+
+  const renderDailyFormModal = () => (
+    <Modal visible={showDailyForm} transparent animationType="slide">
+      <KeyboardAvoidingView
+        style={styles.modalOverlay}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>НОВЫЙ ЕЖЕДНЕВНЫЙ ВЫЗОВ</Text>
+            <Pressable onPress={() => setShowDailyForm(false)}>
+              <MaterialCommunityIcons name="close" size={24} color={COLORS.text} />
+            </Pressable>
+          </View>
+
+          <Text style={styles.label}>Тип активности</Text>
+          <View style={styles.typeRow}>
+            {CHALLENGE_TYPES.map((t) => (
+              <Pressable
+                key={t.type}
+                style={[styles.typeBtn, dailyType === t.type && styles.typeActive]}
+                onPress={() => setDailyType(t.type)}
+              >
+                <MaterialCommunityIcons
+                  name={getChallengeIcon(t.type) as any}
+                  size={20}
+                  color={dailyType === t.type ? "#FFF" : COLORS.text}
+                />
+                <Text style={[styles.typeText, dailyType === t.type && styles.typeTextActive]}>
+                  {t.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.label}>
+            Цель ({getChallengeUnit(dailyType)})
+          </Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Например: 10000"
+            placeholderTextColor={COLORS.muted}
+            value={dailyTarget}
+            onChangeText={setDailyTarget}
+            keyboardType="number-pad"
+          />
+
+          <Text style={styles.hint}>
+            Челлендж создаётся на 1 день. Выполняйте — и он автоматически завершится.
+          </Text>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.createBtn,
+              pressed && styles.btnPressed,
+              isCreatingDaily && styles.btnDisabled,
+            ]}
+            onPress={handleCreateDaily}
+            disabled={isCreatingDaily}
+          >
+            {isCreatingDaily ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={styles.createBtnText}>СОЗДАТЬ ВЫЗОВ</Text>
+            )}
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
 
   return (
     <ScrollView
@@ -119,23 +278,21 @@ export default function ChallengesPage() {
             АКТИВНЫЕ
           </Text>
         </Pressable>
-        <Text> | </Text>
-        <Pressable onPress={() => setActiveTab("system")}>
+        <Text style={styles.switchDivider}> | </Text>
+        <Pressable onPress={() => setActiveTab("daily")}>
           <Text
             style={
-              activeTab === "system" ? styles.switchActive : styles.switchItem
+              activeTab === "daily" ? styles.switchActive : styles.switchItem
             }
           >
-            СИСТЕМНЫЕ
+            ЕЖЕДНЕВНЫЕ
           </Text>
         </Pressable>
-        <Text> | </Text>
+        <Text style={styles.switchDivider}> | </Text>
         <Pressable onPress={() => setActiveTab("completed")}>
           <Text
             style={
-              activeTab === "completed"
-                ? styles.switchActive
-                : styles.switchItem
+              activeTab === "completed" ? styles.switchActive : styles.switchItem
             }
           >
             АРХИВ
@@ -172,7 +329,7 @@ export default function ChallengesPage() {
               </Text>
             </View>
           ) : (
-            activeChallenges.map(renderChallengeCard)
+            activeChallenges.map((c) => renderChallengeCard(c))
           )}
           <Pressable
             style={styles.newChallengeButton}
@@ -181,48 +338,59 @@ export default function ChallengesPage() {
             <MaterialCommunityIcons
               name="plus"
               size={18}
-              color={COLORS.accent}
+              color={COLORS.bg}
             />
             <Text style={styles.newChallengeText}>СОЗДАТЬ ЧЕЛЛЕНДЖ</Text>
           </Pressable>
         </View>
-      ) : activeTab === "system" ? (
+      ) : activeTab === "daily" ? (
         <View style={styles.listCard}>
-          {systemChallenges.length === 0 ? (
+          {dailyChallenges.length === 0 ? (
             <View style={{ alignItems: "center", paddingVertical: 20 }}>
               <MaterialCommunityIcons
-                name="trophy-outline"
+                name="calendar-today"
                 size={40}
                 color={COLORS.muted}
               />
-              <Text
-                style={{
-                  color: COLORS.muted,
-                  marginTop: 8,
-                  textAlign: "center",
-                }}
-              >
-                Системные челленджи появятся после настройки Cloud Functions
+              <Text style={{ color: COLORS.muted, marginTop: 8, textAlign: "center" }}>
+                Нет ежедневных вызовов
               </Text>
             </View>
           ) : (
-            systemChallenges.map(renderChallengeCard)
+            dailyChallenges.map((c) => renderChallengeCard(c, true))
           )}
+          <Pressable
+            style={styles.newChallengeButton}
+            onPress={() => setShowDailyForm(true)}
+          >
+            <MaterialCommunityIcons
+              name="plus"
+              size={18}
+              color={COLORS.bg}
+            />
+            <Text style={styles.newChallengeText}>+ ЕЖЕДНЕВНЫЙ ВЫЗОВ</Text>
+          </Pressable>
         </View>
       ) : (
         <View style={styles.listCard}>
-          <View style={{ alignItems: "center", paddingVertical: 20 }}>
-            <MaterialCommunityIcons
-              name="archive-outline"
-              size={40}
-              color={COLORS.muted}
-            />
-            <Text style={{ color: COLORS.muted, marginTop: 8 }}>
-              Завершённые челленджи
-            </Text>
-          </View>
+          {completedChallenges.length === 0 ? (
+            <View style={{ alignItems: "center", paddingVertical: 20 }}>
+              <MaterialCommunityIcons
+                name="archive-outline"
+                size={40}
+                color={COLORS.muted}
+              />
+              <Text style={{ color: COLORS.muted, marginTop: 8 }}>
+                Ещё нет завершённых челленджей
+              </Text>
+            </View>
+          ) : (
+            completedChallenges.map((c) => renderChallengeCard(c, true))
+          )}
         </View>
       )}
+
+      {renderDailyFormModal()}
     </ScrollView>
   );
 }
@@ -251,34 +419,15 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: COLORS.text,
     fontFamily: "Rimma_sans",
-    // marginRight: 16,
   },
   switchItem: {
     fontSize: 15,
     color: COLORS.muted,
     fontFamily: "Rimma_sans",
-    // marginRight: 16,
   },
-  // switchActive: {
-  //   fontSize: 24,
-  //   color: COLORS.text,
-  //   fontFamily: "Rimma_sans",
-  // },
-  // switchItem: {
-  //   fontSize: 20,
-  //   color: COLORS.muted,
-  //   fontFamily: "Rimma_sans",
-  // },
-  // switchActive: {
-  //   fontSize: 20,
-  //   color: COLORS.text,
-  //   fontFamily: "Rimma_sans",
-  // },
-  // switchItem: {
-  //   fontSize: 18,
-  //   color: COLORS.muted,
-  //   fontFamily: "Rimma_sans",
-  // },
+  switchDivider: {
+    color: COLORS.muted,
+  },
   notConnectedCard: {
     backgroundColor: COLORS.card,
     borderRadius: 24,
@@ -330,6 +479,19 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontFamily: "Rimma_sans",
   },
+  challengeWinner: {
+    fontSize: 13,
+    color: COLORS.green,
+    fontFamily: "Rimma_sans",
+    maxWidth: 140,
+    textAlign: "right",
+  },
+  challengeBottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
   progressTrack: {
     marginTop: 8,
     height: 10,
@@ -343,9 +505,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.accent,
   },
   progressText: {
-    marginTop: 4,
     fontSize: 13,
     color: COLORS.muted,
+  },
+  deleteBtn: {
+    padding: 4,
   },
   newChallengeButton: {
     marginTop: 8,
@@ -362,4 +526,66 @@ const styles = StyleSheet.create({
     color: COLORS.bg,
     fontFamily: "Rimma_sans",
   },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: COLORS.bg,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    gap: 12,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    color: COLORS.text,
+    fontFamily: "Rimma_sans",
+  },
+  label: { fontSize: 14, color: COLORS.muted, fontFamily: "Rimma_sans" },
+  input: {
+    backgroundColor: COLORS.cream,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  hint: {
+    fontSize: 12,
+    color: COLORS.muted,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  typeRow: { flexDirection: "row", gap: 8 },
+  typeBtn: {
+    flex: 1,
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: COLORS.cream,
+    borderRadius: 12,
+    paddingVertical: 10,
+  },
+  typeActive: { backgroundColor: COLORS.accent },
+  typeText: { fontSize: 12, color: COLORS.text, fontFamily: "Rimma_sans" },
+  typeTextActive: { color: "#FFF" },
+  createBtn: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  createBtnText: { fontSize: 18, color: COLORS.bg, fontFamily: "Rimma_sans" },
+  btnPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+  btnDisabled: { opacity: 0.6 },
 });

@@ -9,13 +9,20 @@ export type LeaderEntry = {
 };
 
 function getTodayRange() {
+  const now = new Date();
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
   end.setDate(start.getDate() + 1);
+  const toLocal = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
   return {
-    startDate: start.toISOString().slice(0, 10),
-    endDate: end.toISOString().slice(0, 10),
+    startDate: toLocal(start),
+    endDate: toLocal(end),
   };
 }
 

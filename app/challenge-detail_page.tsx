@@ -5,7 +5,7 @@ import { getChallengeUnit, getChallengeIcon } from "@/src/domain/entities/challe
 import { useChallengeDetailViewModel } from "@/src/presentation/view-models/use-challenge-detail-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
@@ -17,6 +17,7 @@ const COLORS = {
   muted: "#B35A22",
   green: "#48B75A",
   gold: "#F5C518",
+  red: "#f44336",
 };
 
 export default function ChallengeDetailPage() {
@@ -33,7 +34,31 @@ export default function ChallengeDetailPage() {
     isJoining,
     error,
     joinChallenge,
+    refresh,
   } = useChallengeDetailViewModel(challengeRepository, id);
+
+  const handleDelete = () => {
+    if (!challenge) return;
+    Alert.alert(
+      "Удалить челлендж",
+      `Удалить "${challenge.title}"? Это действие необратимо.`,
+      [
+        { text: "Отмена", style: "cancel" },
+        {
+          text: "Удалить",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await challengeRepository.deleteChallenge(challenge.id);
+              router.back();
+            } catch (err: any) {
+              Alert.alert("Ошибка", err.message);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   if (isLoading) {
     return (
@@ -54,6 +79,9 @@ export default function ChallengeDetailPage() {
   const isParticipant = challenge.participants.some((p) => p.userId === currentUser?.uid);
   const isCreator = challenge.creatorId === currentUser?.uid;
   const sortedParticipants = [...challenge.participants].sort((a, b) => b.currentValue - a.currentValue);
+  const winner = challenge.winnerId
+    ? challenge.participants.find((p) => p.userId === challenge.winnerId)
+    : null;
   const startDate = new Date(challenge.startDate).toLocaleDateString("ru-RU");
   const endDate = new Date(challenge.endDate).toLocaleDateString("ru-RU");
 
@@ -67,12 +95,40 @@ export default function ChallengeDetailPage() {
           <MaterialCommunityIcons name="arrow-left" size={28} color={COLORS.text} />
         </Pressable>
         <Text style={styles.headerTitle}>ЧЕЛЛЕНДЖ</Text>
-        <View style={{ width: 28 }} />
+        {isCreator ? (
+          <Pressable onPress={handleDelete} hitSlop={12}>
+            <MaterialCommunityIcons name="delete-outline" size={26} color={COLORS.red} />
+          </Pressable>
+        ) : (
+          <View style={{ width: 28 }} />
+        )}
       </View>
 
       {error ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
+      {challenge.status === "completed" && winner ? (
+        <View style={styles.winnerBanner}>
+          <MaterialCommunityIcons name="crown" size={32} color={COLORS.gold} />
+          <View style={styles.winnerInfo}>
+            <Text style={styles.winnerLabel}>ПОБЕДИТЕЛЬ</Text>
+            <Text style={styles.winnerName}>{winner.displayName}</Text>
+            <Text style={styles.winnerValue}>
+              {winner.currentValue.toLocaleString()} {getChallengeUnit(challenge.type)}
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="trophy" size={32} color={COLORS.gold} />
+        </View>
+      ) : challenge.status === "completed" ? (
+        <View style={[styles.winnerBanner, { borderColor: COLORS.muted }]}>
+          <MaterialCommunityIcons name="flag-off" size={32} color={COLORS.muted} />
+          <View style={styles.winnerInfo}>
+            <Text style={[styles.winnerLabel]}>ЗАВЕРШЁН</Text>
+            <Text style={[styles.winnerName, { color: COLORS.muted }]}>Никто не выполнил</Text>
+          </View>
         </View>
       ) : null}
 
@@ -97,7 +153,7 @@ export default function ChallengeDetailPage() {
           <View style={styles.metaItem}>
             <Text style={styles.metaLabel}>Статус</Text>
             <Text style={[styles.metaValue, { color: challenge.status === "active" ? COLORS.green : COLORS.accent }]}>
-              {challenge.status === "active" ? "АКТИВЕН" : challenge.status.toUpperCase()}
+              {challenge.status === "active" ? "АКТИВЕН" : challenge.status === "completed" ? "ЗАВЕРШЁН" : challenge.status.toUpperCase()}
             </Text>
           </View>
         </View>
@@ -202,6 +258,21 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   errorText: { fontSize: 14, color: "#A4371D" },
+  winnerBanner: {
+    backgroundColor: "#FFF8DC",
+    borderRadius: 24,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    elevation: 5,
+    borderWidth: 2,
+    borderColor: COLORS.gold,
+  },
+  winnerInfo: { flex: 1, alignItems: "center" },
+  winnerLabel: { fontSize: 12, color: COLORS.muted, fontFamily: "Rimma_sans" },
+  winnerName: { fontSize: 22, color: COLORS.accent, fontFamily: "Rimma_sans" },
+  winnerValue: { fontSize: 14, color: COLORS.muted },
   mainCard: {
     backgroundColor: COLORS.card,
     borderRadius: 24,

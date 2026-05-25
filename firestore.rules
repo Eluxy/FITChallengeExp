@@ -22,14 +22,14 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update: if request.auth != null;
-      allow delete: if false;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.creatorId;
     }
 
     match /challenges/{challengeId}/messages/{messageId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update: if request.auth.uid == resource.data.userId;
-      allow delete: if false;
+      allow delete: if request.auth != null && get(/databases/$(database)/documents/challenges/$(challengeId)).data.creatorId == request.auth.uid;
     }
 
     // ----- Friends -----
