@@ -2,6 +2,7 @@ import { useAuth } from "@/src/context/auth-context";
 import { upsertDailyProgress } from "@/src/data/firebase/firestore-rest";
 import { fetchGoogleFitSummary } from "@/src/data/google-fit/fetch-google-fit-summary";
 import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
+import { FirebaseChallengeRepository } from "@/src/data/repositories/firebase-challenge-repository";
 import { doc, getDoc } from "firebase/firestore";
 import type { DashboardStats } from "@/src/domain/entities/dashboard";
 import type { UserGoals } from "@/src/domain/entities/user-settings";
@@ -17,6 +18,8 @@ const DEFAULT_STATS: DashboardStats = {
 const SAVE_INTERVAL_MS = 2 * 60 * 1000;
 
 function getDayRange() {
+  const now = new Date();
+  const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
@@ -24,7 +27,7 @@ function getDayRange() {
   return {
     startTimeMillis: start.getTime(),
     endTimeMillis: end.getTime(),
-    dateIso: start.toISOString().slice(0, 10),
+    dateIso: localDate,
   };
 }
 
@@ -117,6 +120,30 @@ export function useGoogleFitData() {
         setStats(nextStats);
 
         await saveTodayProgress(summary.steps, summary.calories, nextStats.progressPercent);
+
+        try {
+          const uid = getFirebaseAuth().currentUser?.uid;
+          if (uid) {
+            const repo = new FirebaseChallengeRepository();
+            const userChallenges = await repo.getUserChallenges(uid);
+            const activeChallenges = userChallenges.filter(
+              (c) =>
+                (c.status === "active" || c.status === "pending") &&
+                c.participants.some((p) => p.userId === uid),
+            );
+            for (const challenge of activeChallenges) {
+              let value = 0;
+              if (challenge.type === "steps") value = summary.steps;
+              else if (challenge.type === "calories") value = summary.calories;
+              else if (challenge.type === "distance") value = Math.round((summary.distanceMeters ?? 0) / 1000);
+              if (value > 0) {
+                await repo.updateParticipantValue(challenge.id, uid, value);
+              }
+            }
+          }
+        } catch (err) {
+          console.log("Error syncing challenge progress:", err);
+        }
       } catch (err: any) {
         setError("Не удалось загрузить данные из Google Fit");
       } finally {

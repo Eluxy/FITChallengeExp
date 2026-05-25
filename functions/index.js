@@ -94,7 +94,31 @@ exports.onChallengeEnd = functions.firestore
       if (endDate > new Date()) return; // ещё не истекло
 
       const participants = after.participants || [];
-      if (participants.length === 0) return;
+
+      const hasProgress = participants.some((p) => p.currentValue > 0);
+
+      if (!hasProgress) {
+        await change.after.ref.update({
+          status: "completed",
+          completedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // Уведомляем всех
+        const promises = participants.map(async (p) => {
+          const token = await getUserPushToken(p.userId);
+          if (token) {
+            await sendPush(
+              token,
+              "Челлендж завершён",
+              `Челлендж "${after.title}" завершён. Никто не выполнил цель.`,
+              { type: "challenge_end", challengeId: context.params.challengeId },
+            );
+          }
+        });
+
+        await Promise.all(promises);
+        return;
+      }
 
       // Сортируем по currentValue и определяем победителя
       const sorted = [...participants].sort((a, b) => b.currentValue - a.currentValue);

@@ -1,15 +1,16 @@
-import type { Challenge } from "@/src/domain/entities/challenge";
+import type { Challenge, ChallengeType } from "@/src/domain/entities/challenge";
 import type { ChallengeRepository } from "@/src/domain/repositories/challenge-repository";
 import { useCallback, useEffect, useState } from "react";
 
-export type ChallengesTab = "active" | "system" | "completed";
+export type ChallengesTab = "active" | "daily" | "completed";
 
 export function useChallengesViewModel(
   challengeRepository: ChallengeRepository,
   userId: string | null | undefined,
 ) {
   const [activeChallenges, setActiveChallenges] = useState<Challenge[]>([]);
-  const [systemChallenges, setSystemChallenges] = useState<Challenge[]>([]);
+  const [dailyChallenges, setDailyChallenges] = useState<Challenge[]>([]);
+  const [completedChallenges, setCompletedChallenges] = useState<Challenge[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const loadChallenges = useCallback(async () => {
@@ -17,16 +18,18 @@ export function useChallengesViewModel(
     setIsLoading(true);
     try {
       await challengeRepository.checkAndCompleteExpiredChallenges();
-      const [allChallenges, system] = await Promise.all([
+      const [allChallenges, daily, completed] = await Promise.all([
         challengeRepository.getUserChallenges(userId),
         challengeRepository.getSystemChallenges(),
+        challengeRepository.getCompletedChallenges(userId),
       ]);
       setActiveChallenges(
         allChallenges.filter(
           (c) => c.status === "active" || c.status === "pending",
         ),
       );
-      setSystemChallenges(system);
+      setDailyChallenges(daily);
+      setCompletedChallenges(completed);
     } catch (err) {
       console.log("Error loading challenges:", err);
     } finally {
@@ -38,10 +41,44 @@ export function useChallengesViewModel(
     loadChallenges();
   }, [loadChallenges]);
 
+  const createDailyChallenge = useCallback(
+    async (type: ChallengeType, targetValue: number) => {
+      if (!userId) throw new Error("Не авторизован");
+      const startDate = new Date();
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 1);
+
+      await challengeRepository.createChallenge({
+        title: `Ежедневно: ${type}`,
+        description: "",
+        type,
+        targetValue,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        isSystem: true,
+      });
+
+      await loadChallenges();
+    },
+    [userId, challengeRepository, loadChallenges],
+  );
+
+  const deleteChallenge = useCallback(
+    async (challengeId: string) => {
+      await challengeRepository.deleteChallenge(challengeId);
+      await loadChallenges();
+    },
+    [challengeRepository, loadChallenges],
+  );
+
   return {
     activeChallenges,
-    systemChallenges,
+    dailyChallenges,
+    completedChallenges,
     isLoading,
     refresh: loadChallenges,
+    createDailyChallenge,
+    deleteChallenge,
   };
 }

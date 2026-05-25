@@ -24,5 +24,8 @@ export interface ChallengeRepository {
   startChallenge(challengeId: string): Promise<void>;
   cancelChallenge(challengeId: string): Promise<void>;
 
+  getCompletedChallenges(userId: string): Promise<Challenge[]>;
+  deleteChallenge(challengeId: string): Promise<void>;
+
   checkAndCompleteExpiredChallenges(): Promise<{ completed: number; winners: string[] }>;
 }
