@@ -1,182 +1,67 @@
 import { useAuth } from "@/src/context/auth-context";
-import { fetchDailyProgressRange } from "@/src/data/firebase/firestore-rest";
+import {
+  useStatisticsViewModel,
+  getPeriodTitle,
+} from "@/src/presentation/view-models/use-statistics-view-model";
+import { useSwipeableTab } from "@/src/utils/use-swipeable-tab";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",
+  card: "#F8EDAD",
+  text: "#ED7C30",
+  accent: "#ED7C30",
+  muted: "#B35A22",
   green: "#48B75A",
 } as const;
-
-type Period = "day" | "month" | "year";
-
-type StatsState = {
-  totalSteps: number;
-  totalCalories: number;
-  bestDayDate: string;
-  bestDaySteps: number;
-};
-
-const EMPTY_STATS: StatsState = {
-  totalSteps: 0,
-  totalCalories: 0,
-  bestDayDate: "Нет данных",
-  bestDaySteps: 0,
-};
-
-function getStartDate(period: Period): Date {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-
-  if (period === "month") {
-    date.setDate(1);
-  } else if (period === "year") {
-    date.setMonth(0, 1);
-  }
-
-  return date;
-}
-
-function formatIsoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function formatBestDate(isoDate: string): string {
-  try {
-    const parsed = new Date(isoDate);
-    return new Intl.DateTimeFormat("ru-RU", {
-      day: "numeric",
-      month: "long",
-    }).format(parsed);
-  } catch {
-    return isoDate;
-  }
-}
-
-function getPeriodTitle(period: Period): string {
-  const now = new Date();
-  if (period === "day") {
-    return `Сегодня, ${new Intl.DateTimeFormat("ru-RU", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }).format(now)}`;
-  }
-
-  if (period === "month") {
-    return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(now);
-  }
-
-  return String(now.getFullYear());
-}
 
 export default function StatisticsPage() {
   const insets = useSafeAreaInsets();
   const { userInfo, isConnected } = useAuth();
-  const [period, setPeriod] = useState<Period>("day");
-  const [stats, setStats] = useState<StatsState>(EMPTY_STATS);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const progressUserId = useMemo(
-    () => userInfo?.email?.replace(/[@.]/g, "_") ?? process.env.EXPO_PUBLIC_PROGRESS_USER_ID ?? "guest",
-    [userInfo],
-  );
-
-  const loadStatistics = useCallback(async () => {
-    if (!isConnected) {
-      setStats(EMPTY_STATS);
-      setError("Войдите в аккаунт для просмотра статистики");
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const startDate = getStartDate(period);
-      const endDate = new Date();
-      const rows = await fetchDailyProgressRange({
-        userId: progressUserId,
-        startDate: formatIsoDate(startDate),
-        endDate: formatIsoDate(endDate),
-      });
-
-      if (rows.length === 0) {
-        setStats(EMPTY_STATS);
-        return;
-      }
-
-      let totalSteps = 0;
-      let totalCalories = 0;
-      let bestDaySteps = 0;
-      let bestDayDate = "Нет данных";
-
-      rows.forEach((data) => {
-        const steps = data.steps;
-        const calories = data.calories;
-        const date = data.date;
-
-        totalSteps += steps;
-        totalCalories += calories;
-
-        if (steps > bestDaySteps && date) {
-          bestDaySteps = steps;
-          bestDayDate = formatBestDate(date);
-        }
-      });
-
-      setStats({
-        totalSteps,
-        totalCalories,
-        bestDayDate,
-        bestDaySteps,
-      });
-    } catch (err: any) {
-      console.log("❌ Statistics error:", err);
-      console.log("❌ Error message:", err.message);
-      setError("Не удалось загрузить статистику из Firebase");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [period, progressUserId, isConnected]);
-
-  useEffect(() => {
-    void loadStatistics();
-  }, [loadStatistics]);
+  const {
+    period,
+    setPeriod,
+    stats,
+    isLoading,
+    error,
+    refresh: loadStatistics,
+  } = useStatisticsViewModel(userInfo?.email, isConnected);
+  const swipeHandlers = useSwipeableTab("explore");
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
+    <View
+      style={[styles.root, { paddingTop: insets.top + 8 }]}
+      {...swipeHandlers}
+    >
       <View style={styles.header}>
-        <MaterialCommunityIcons name="chart-line" size={26} color={COLORS.text} />
         <Text style={styles.headerTitle}>СТАТИСТИКА</Text>
-        <View style={styles.headerRight}>
-          <MaterialCommunityIcons name="heart" size={16} color={COLORS.muted} />
-          <MaterialCommunityIcons
-            name="triangle"
-            size={14}
-            color={COLORS.muted}
-            style={{ marginLeft: 4 }}
-          />
-        </View>
+        <View style={styles.headerRight}></View>
       </View>
 
       <View style={styles.switchCard}>
         <Pressable onPress={() => setPeriod("day")}>
-          <Text style={period === "day" ? styles.switchActive : styles.switchItem}>ДЕНЬ</Text>
+          <Text
+            style={period === "day" ? styles.switchActive : styles.switchItem}
+          >
+            ДЕНЬ
+          </Text>
         </Pressable>
         <Pressable onPress={() => setPeriod("month")}>
-          <Text style={period === "month" ? styles.switchActive : styles.switchItem}>МЕСЯЦ</Text>
+          <Text
+            style={period === "month" ? styles.switchActive : styles.switchItem}
+          >
+            МЕСЯЦ
+          </Text>
         </Pressable>
         <Pressable onPress={() => setPeriod("year")}>
-          <Text style={period === "year" ? styles.switchActive : styles.switchItem}>ГОД</Text>
+          <Text
+            style={period === "year" ? styles.switchActive : styles.switchItem}
+          >
+            ГОД
+          </Text>
         </Pressable>
       </View>
 
@@ -184,9 +69,15 @@ export default function StatisticsPage() {
         <Text style={styles.periodText}>{getPeriodTitle(period)}</Text>
 
         <View style={styles.metricRow}>
-          <MaterialCommunityIcons name="shoe-sneaker" size={34} color={COLORS.accent} />
+          <MaterialCommunityIcons
+            name="shoe-sneaker"
+            size={34}
+            color={COLORS.accent}
+          />
           <View style={styles.metricCenter}>
-            <Text style={styles.metricValue}>{stats.totalSteps.toLocaleString("ru-RU")}</Text>
+            <Text style={styles.metricValue}>
+              {stats.totalSteps.toLocaleString("ru-RU")}
+            </Text>
             <Text style={styles.metricLabel}>Всего шагов</Text>
           </View>
           <Text style={styles.metricDelta}>{isLoading ? "..." : "LIVE"}</Text>
@@ -209,16 +100,23 @@ export default function StatisticsPage() {
           <Pressable
             accessibilityRole="button"
             onPress={loadStatistics}
-            style={({ pressed }) => [styles.actionButton, pressed && styles.buttonPressed]}
+            style={({ pressed }) => [
+              styles.actionButton,
+              pressed && styles.buttonPressed,
+            ]}
           >
-            <Text style={styles.actionButtonText}>{isLoading ? "ЗАГРУЗКА..." : "ОБНОВИТЬ"}</Text>
+            <Text style={styles.actionButtonText}>
+              {isLoading ? "ЗАГРУЗКА..." : "ОБНОВИТЬ"}
+            </Text>
           </Pressable>
         </View>
       </View>
 
       <View style={styles.bestDayCard}>
         <Text style={styles.bestDayTop}>ЛУЧШИЙ ДЕНЬ</Text>
-        <Text style={styles.bestDayDate}>{stats.bestDayDate.toUpperCase()}</Text>
+        <Text style={styles.bestDayDate}>
+          {stats.bestDayDate.toUpperCase()}
+        </Text>
         <Text style={styles.bestDayNumbers}>
           {stats.bestDaySteps.toLocaleString("ru-RU")} шагов
         </Text>
@@ -364,6 +262,7 @@ const styles = StyleSheet.create({
     marginTop: -4,
     fontSize: 48,
     color: COLORS.text,
+    textAlign: "center",
     fontFamily: "Rimma_sans",
   },
   bestDayNumbers: {

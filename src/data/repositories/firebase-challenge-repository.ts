@@ -1,5 +1,6 @@
 import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
 import type { Challenge, ChallengeParticipant, ChallengeStatus, ChallengeType } from "@/src/domain/entities/challenge";
+import type { ChallengeRepository } from "@/src/domain/repositories/challenge-repository";
 import {
   collection,
   doc,
@@ -31,7 +32,7 @@ function challengeFromDoc(id: string, data: any): Challenge {
   };
 }
 
-export class FirebaseChallengeRepository {
+export class FirebaseChallengeRepository implements ChallengeRepository {
   private get challengesCol() {
     return collection(getFirebaseDb(), "challenges");
   }

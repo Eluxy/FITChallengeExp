@@ -1,4 +1,6 @@
 import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
+import type { ChatMessage } from "@/src/domain/entities/chat";
+import type { ChatRepository } from "@/src/domain/repositories/chat-repository";
 import {
   collection,
   addDoc,
@@ -8,19 +10,9 @@ import {
   onSnapshot,
   getDocs,
   limit,
-  Timestamp,
 } from "firebase/firestore";
 
-export type ChatMessage = {
-  id: string;
-  challengeId: string;
-  userId: string;
-  displayName: string;
-  text: string;
-  createdAt: string;
-};
-
-export class FirebaseChatRepository {
+export class FirebaseChatRepository implements ChatRepository {
   private getMessagesCol(challengeId: string) {
     return collection(getFirebaseDb(), "challenges", challengeId, "messages");
   }

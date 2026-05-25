@@ -1,16 +1,9 @@
-import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
-import {
-  setupNotifications,
-  scheduleDailyReminder,
-} from "@/src/services/notifications/notification-service";
+import { useNotificationSettingsViewModel } from "@/src/presentation/view-models/use-notification-settings-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { cancelAllScheduledNotificationsAsync } from "expo-notifications";
-import { useCallback, useEffect, useState } from "react";
+import { Alert } from "react-native";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,12 +14,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",
+  card: "#F8EDAD",
+  text: "#ED7C30",
+  accent: "#ED7C30",
+  muted: "#B35A22",
   green: "#4CAF50",
 };
 
@@ -37,92 +30,23 @@ export default function NotificationSettingsPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [enabled, setEnabled] = useState(false);
-  const [hour, setHour] = useState(20);
-  const [minute, setMinute] = useState(0);
-  const [permissionStatus, setPermissionStatus] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    try {
-      const auth = getFirebaseAuth();
-      const user = auth.currentUser;
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      const db = getFirebaseDb();
-      const userRef = doc(db, "users", user.uid);
-      const snap = await getDoc(userRef);
-
-      if (snap.exists()) {
-        const data = snap.data();
-        setEnabled(data.reminderEnabled ?? false);
-        setHour(data.reminderHour ?? 20);
-        setMinute(data.reminderMinute ?? 0);
-      }
-    } catch (err) {
-      console.log("Error loading notification settings:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleToggle = useCallback(async (value: boolean) => {
-    setEnabled(value);
-
-    if (value) {
-      const result = await setupNotifications();
-      if (result === null) {
-        setPermissionStatus("not-granted");
-        setEnabled(false);
-        return;
-      }
-      setPermissionStatus("granted");
-      await scheduleDailyReminder(hour, minute);
-    } else {
-      await cancelAllScheduledNotificationsAsync();
-      setPermissionStatus(null);
-    }
-  }, [hour, minute]);
+  const {
+    isLoading,
+    isSaving,
+    enabled,
+    hour, setHour,
+    minute, setMinute,
+    handleToggle,
+    saveSettings,
+  } = useNotificationSettingsViewModel();
 
   const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const auth = getFirebaseAuth();
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const db = getFirebaseDb();
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          reminderEnabled: enabled,
-          reminderHour: hour,
-          reminderMinute: minute,
-        },
-        { merge: true },
-      );
-
-      if (enabled) {
-        await scheduleDailyReminder(hour, minute);
-      } else {
-        await cancelAllScheduledNotificationsAsync();
-      }
-
+    const error = await saveSettings();
+    if (error) {
+      Alert.alert("Ошибка", error);
+    } else {
       Alert.alert("Сохранено", "Настройки уведомлений сохранены");
       router.back();
-    } catch (err) {
-      console.log("Error saving notification settings:", err);
-      Alert.alert("Ошибка", "Не удалось сохранить настройки");
-    } finally {
-      setIsSaving(false);
     }
   };
 

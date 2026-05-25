@@ -1,24 +1,35 @@
 import { useAuth } from "@/src/context/auth-context";
-import { getFirebaseAuth } from "@/src/config/firebase";
-import { FirebaseChallengeRepository } from "@/src/data/repositories/firebase-challenge-repository";
+import { useServices } from "@/src/context/service-provider";
 import { useGoogleFitData } from "@/src/presentation/view-models/use-google-fit-data";
+import { useSwipeableTab } from "@/src/utils/use-swipeable-tab";
+import { useChallengesViewModel } from "@/src/presentation/view-models/use-challenges-view-model";
 import type { Challenge } from "@/src/domain/entities/challenge";
-import { getChallengeUnit, getChallengeIcon } from "@/src/domain/entities/challenge";
+import {
+  getChallengeUnit,
+  getChallengeIcon,
+} from "@/src/domain/entities/challenge";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
-  green: "#48B75A",
-  red: "#D94A2B",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",
+  card: "#F8EDAD",
+  text: "#ED7C30",
+  accent: "#ED7C30",
+  muted: "#B35A22",
+  green: "#4CAF50",
+  red: "#f44336",
 };
 
 type Tab = "active" | "system" | "completed";
@@ -26,47 +37,25 @@ type Tab = "active" | "system" | "completed";
 export default function ChallengesPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { isConnected } = useAuth();
+  const { isConnected, firebaseUser } = useAuth();
   useGoogleFitData();
   const [activeTab, setActiveTab] = useState<Tab>("active");
-  const [activeChallenges, setActiveChallenges] = useState<Challenge[]>([]);
-  const [systemChallenges, setSystemChallenges] = useState<Challenge[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const { challengeRepository } = useServices();
+  const currentUserId = firebaseUser?.uid;
+  const swipeHandlers = useSwipeableTab("challenges_page");
 
-  const repo = new FirebaseChallengeRepository();
-  const auth = getFirebaseAuth();
-  const currentUser = auth.currentUser;
-
-  const loadChallenges = useCallback(async () => {
-    if (!currentUser) return;
-    setIsLoading(true);
-    try {
-      // Проверяем и завершаем истёкшие челленджи
-      await repo.checkAndCompleteExpiredChallenges();
-
-      const [allChallenges, system] = await Promise.all([
-        repo.getUserChallenges(currentUser.uid),
-        repo.getSystemChallenges(),
-      ]);
-      setActiveChallenges(allChallenges.filter((c) => c.status === "active" || c.status === "pending"));
-      setSystemChallenges(system);
-    } catch (err) {
-      console.log("Error loading challenges:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
-    loadChallenges();
-  }, [loadChallenges]);
+  const { activeChallenges, systemChallenges, isLoading, refresh } =
+    useChallengesViewModel(challengeRepository, currentUserId);
 
   const renderChallengeCard = (challenge: Challenge) => {
-    const myParticipation = challenge.participants.find((p) => p.userId === currentUser?.uid);
+    const myParticipation = challenge.participants.find(
+      (p) => p.userId === currentUserId,
+    );
     const myValue = myParticipation?.currentValue ?? 0;
-    const progress = challenge.targetValue > 0
-      ? Math.min(Math.round((myValue / challenge.targetValue) * 100), 100)
-      : 0;
+    const progress =
+      challenge.targetValue > 0
+        ? Math.min(Math.round((myValue / challenge.targetValue) * 100), 100)
+        : 0;
 
     return (
       <Pressable
@@ -84,7 +73,8 @@ export default function ChallengesPage() {
             <View>
               <Text style={styles.challengeTitle}>{challenge.title}</Text>
               <Text style={styles.challengeSubtitle}>
-                {challenge.targetValue.toLocaleString()} {getChallengeUnit(challenge.type)}
+                {challenge.targetValue.toLocaleString()}{" "}
+                {getChallengeUnit(challenge.type)}
                 {challenge.isSystem ? " • Системный" : ""}
               </Text>
             </View>
@@ -95,7 +85,8 @@ export default function ChallengesPage() {
           <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
         <Text style={styles.progressText}>
-          {challenge.participants.length} участников • до {new Date(challenge.endDate).toLocaleDateString("ru-RU")}
+          {challenge.participants.length} участников • до{" "}
+          {new Date(challenge.endDate).toLocaleDateString("ru-RU")}
         </Text>
       </Pressable>
     );
@@ -106,31 +97,47 @@ export default function ChallengesPage() {
       style={[styles.root, { paddingTop: insets.top + 8 }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      {...swipeHandlers}
     >
       <View style={styles.header}>
-        <MaterialCommunityIcons name="flag-checkered" size={26} color={COLORS.text} />
         <Text style={styles.headerTitle}>ЧЕЛЛЕНДЖИ</Text>
         <MaterialCommunityIcons
           name="trophy-outline"
           size={24}
           color={COLORS.text}
-          onPress={loadChallenges}
+          onPress={refresh}
         />
       </View>
 
       <View style={styles.switchCard}>
         <Pressable onPress={() => setActiveTab("active")}>
-          <Text style={activeTab === "active" ? styles.switchActive : styles.switchItem}>
+          <Text
+            style={
+              activeTab === "active" ? styles.switchActive : styles.switchItem
+            }
+          >
             АКТИВНЫЕ
           </Text>
         </Pressable>
+        <Text> | </Text>
         <Pressable onPress={() => setActiveTab("system")}>
-          <Text style={activeTab === "system" ? styles.switchActive : styles.switchItem}>
+          <Text
+            style={
+              activeTab === "system" ? styles.switchActive : styles.switchItem
+            }
+          >
             СИСТЕМНЫЕ
           </Text>
         </Pressable>
+        <Text> | </Text>
         <Pressable onPress={() => setActiveTab("completed")}>
-          <Text style={activeTab === "completed" ? styles.switchActive : styles.switchItem}>
+          <Text
+            style={
+              activeTab === "completed"
+                ? styles.switchActive
+                : styles.switchItem
+            }
+          >
             АРХИВ
           </Text>
         </Pressable>
@@ -138,7 +145,11 @@ export default function ChallengesPage() {
 
       {!isConnected ? (
         <View style={styles.notConnectedCard}>
-          <MaterialCommunityIcons name="account-off-outline" size={48} color={COLORS.muted} />
+          <MaterialCommunityIcons
+            name="account-off-outline"
+            size={48}
+            color={COLORS.muted}
+          />
           <Text style={styles.notConnectedText}>
             Войдите в аккаунт, чтобы участвовать в челленджах
           </Text>
@@ -151,8 +162,14 @@ export default function ChallengesPage() {
         <View style={styles.listCard}>
           {activeChallenges.length === 0 ? (
             <View style={{ alignItems: "center", paddingVertical: 20 }}>
-              <MaterialCommunityIcons name="flag-checkered" size={40} color={COLORS.muted} />
-              <Text style={{ color: COLORS.muted, marginTop: 8 }}>Нет активных челленджей</Text>
+              <MaterialCommunityIcons
+                name="flag-checkered"
+                size={40}
+                color={COLORS.muted}
+              />
+              <Text style={{ color: COLORS.muted, marginTop: 8 }}>
+                Нет активных челленджей
+              </Text>
             </View>
           ) : (
             activeChallenges.map(renderChallengeCard)
@@ -161,7 +178,11 @@ export default function ChallengesPage() {
             style={styles.newChallengeButton}
             onPress={() => router.push("/create-challenge_page")}
           >
-            <MaterialCommunityIcons name="plus" size={18} color={COLORS.accent} />
+            <MaterialCommunityIcons
+              name="plus"
+              size={18}
+              color={COLORS.accent}
+            />
             <Text style={styles.newChallengeText}>СОЗДАТЬ ЧЕЛЛЕНДЖ</Text>
           </Pressable>
         </View>
@@ -169,8 +190,18 @@ export default function ChallengesPage() {
         <View style={styles.listCard}>
           {systemChallenges.length === 0 ? (
             <View style={{ alignItems: "center", paddingVertical: 20 }}>
-              <MaterialCommunityIcons name="trophy-outline" size={40} color={COLORS.muted} />
-              <Text style={{ color: COLORS.muted, marginTop: 8, textAlign: "center" }}>
+              <MaterialCommunityIcons
+                name="trophy-outline"
+                size={40}
+                color={COLORS.muted}
+              />
+              <Text
+                style={{
+                  color: COLORS.muted,
+                  marginTop: 8,
+                  textAlign: "center",
+                }}
+              >
                 Системные челленджи появятся после настройки Cloud Functions
               </Text>
             </View>
@@ -181,7 +212,11 @@ export default function ChallengesPage() {
       ) : (
         <View style={styles.listCard}>
           <View style={{ alignItems: "center", paddingVertical: 20 }}>
-            <MaterialCommunityIcons name="archive-outline" size={40} color={COLORS.muted} />
+            <MaterialCommunityIcons
+              name="archive-outline"
+              size={40}
+              color={COLORS.muted}
+            />
             <Text style={{ color: COLORS.muted, marginTop: 8 }}>
               Завершённые челленджи
             </Text>
@@ -211,18 +246,39 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     flexDirection: "row",
-    justifyContent: "space-around",
   },
   switchActive: {
-    fontSize: 24,
+    fontSize: 17,
     color: COLORS.text,
     fontFamily: "Rimma_sans",
+    // marginRight: 16,
   },
   switchItem: {
-    fontSize: 20,
+    fontSize: 15,
     color: COLORS.muted,
     fontFamily: "Rimma_sans",
+    // marginRight: 16,
   },
+  // switchActive: {
+  //   fontSize: 24,
+  //   color: COLORS.text,
+  //   fontFamily: "Rimma_sans",
+  // },
+  // switchItem: {
+  //   fontSize: 20,
+  //   color: COLORS.muted,
+  //   fontFamily: "Rimma_sans",
+  // },
+  // switchActive: {
+  //   fontSize: 20,
+  //   color: COLORS.text,
+  //   fontFamily: "Rimma_sans",
+  // },
+  // switchItem: {
+  //   fontSize: 18,
+  //   color: COLORS.muted,
+  //   fontFamily: "Rimma_sans",
+  // },
   notConnectedCard: {
     backgroundColor: COLORS.card,
     borderRadius: 24,
@@ -254,7 +310,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  challengeLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  challengeLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
   challengeTitle: {
     fontSize: 20,
     color: COLORS.text,
@@ -266,7 +327,7 @@ const styles = StyleSheet.create({
   },
   challengeReward: {
     fontSize: 18,
-    color: COLORS.green,
+    color: COLORS.accent,
     fontFamily: "Rimma_sans",
   },
   progressTrack: {
@@ -293,12 +354,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: COLORS.cream,
+    backgroundColor: COLORS.accent,
   },
   newChallengeText: {
     marginLeft: 4,
     fontSize: 18,
-    color: COLORS.accent,
+    color: COLORS.bg,
     fontFamily: "Rimma_sans",
   },
 });

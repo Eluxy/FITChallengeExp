@@ -1,19 +1,20 @@
 import { useAuth } from "@/src/context/auth-context";
-import { FirebaseFriendRepository, type FriendRequest } from "@/src/data/repositories/firebase-friend-repository";
+import { useServices } from "@/src/context/service-provider";
+import { useFriendRequestsViewModel } from "@/src/presentation/view-models/use-friend-requests-view-model";
 import { sendPushToUser } from "@/src/services/notifications/notification-service";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",
+  card: "#F8EDAD",
+  text: "#ED7C30",
+  accent: "#ED7C30",
+  muted: "#B35A22",
   green: "#48B75A",
 };
 
@@ -21,55 +22,18 @@ export default function FriendRequestsPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { isConnected, userInfo } = useAuth();
-  const [requests, setRequests] = useState<FriendRequest[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const repo = useRef(new FirebaseFriendRepository());
+  const { friendRepository } = useServices();
 
-  const loadRequests = useCallback(async () => {
-    if (!isConnected) return;
-    try {
-      const data = await repo.current.getPendingRequests();
-      setRequests(data);
-    } catch (err) {
-      console.log("Error loading requests:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isConnected]);
+  const { requests, isLoading, handleAccept, handleReject } = useFriendRequestsViewModel(
+    friendRepository,
+    isConnected,
+    (userId, title, body) => {
+      sendPushToUser(userId, title, `${userInfo?.name || "Пользователь"} ${body}`, { type: "friend_accept" });
+    },
+  );
 
-  useEffect(() => {
-    loadRequests();
-  }, [loadRequests]);
-
-  const handleAccept = async (id: string, req?: FriendRequest) => {
-    try {
-      const result = await repo.current.acceptFriendRequest(id);
-
-      if (result.success) {
-        if (req) {
-          sendPushToUser(
-            req.fromUserId,
-            "Заявка принята",
-            `${userInfo?.name || "Пользователь"} принял(а) вашу заявку в друзья!`,
-            { type: "friend_accept" },
-          );
-        }
-        await loadRequests();
-      } else {
-        Alert.alert("Внимание", result.message);
-      }
-    } catch (err: any) {
-      Alert.alert("Ошибка", err.message || "Не удалось принять заявку");
-    }
-  };
-
-  const handleReject = async (id: string) => {
-    try {
-      await repo.current.rejectFriendRequest(id);
-      await loadRequests();
-    } catch (err: any) {
-      Alert.alert("Ошибка", err.message || "Не удалось отклонить заявку");
-    }
+  const handleAcceptWithCheck = (id: string, req?: any) => {
+    handleAccept(id, req);
   };
 
   return (

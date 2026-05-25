@@ -1,12 +1,11 @@
-import { getFirebaseAuth } from "@/src/config/firebase";
-import { FirebaseChallengeRepository } from "@/src/data/repositories/firebase-challenge-repository";
-import { FirebaseFriendRepository, type FriendInfo } from "@/src/data/repositories/firebase-friend-repository";
-import { sendPushToUser } from "@/src/services/notifications/notification-service";
+import { useServices } from "@/src/context/service-provider";
+import { useAuth } from "@/src/context/auth-context";
 import type { ChallengeType } from "@/src/domain/entities/challenge";
 import { getChallengeUnit, getChallengeIcon } from "@/src/domain/entities/challenge";
+import { useCreateChallengeViewModel } from "@/src/presentation/view-models/use-create-challenge-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,12 +21,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",
+  card: "#F8EDAD",
+  text: "#ED7C30",
+  accent: "#ED7C30",
+  muted: "#B35A22",
   green: "#48B75A",
 };
 
@@ -50,130 +49,14 @@ export default function CreateChallengePage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { friendId, friendName } = useLocalSearchParams<{ friendId?: string; friendName?: string }>();
-  const [title, setTitle] = useState(friendName ? `Челлендж с ${friendName}` : "");
-  const [description, setDescription] = useState("");
-  const [type, setType] = useState<ChallengeType>("steps");
-  const [targetValue, setTargetValue] = useState("");
-  const [duration, setDuration] = useState(7);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [friends, setFriends] = useState<FriendInfo[]>([]);
-  const [selectedFriendIds, setSelectedFriendIds] = useState<Set<string>>(new Set());
-  const [showFriendSelector, setShowFriendSelector] = useState(false);
-  const [isLoadingFriends, setIsLoadingFriends] = useState(false);
+  const { challengeRepository, friendRepository } = useServices();
+  const { firebaseUser } = useAuth();
 
-  const repo = new FirebaseChallengeRepository();
-  const friendRepo = new FirebaseFriendRepository();
-  const auth = getFirebaseAuth();
-  const currentUser = auth.currentUser;
-
-  useEffect(() => {
-    if (friendId) {
-      setSelectedFriendIds(new Set([friendId]));
-    }
-    loadFriends();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const loadFriends = async () => {
-    setIsLoadingFriends(true);
-    try {
-      const friendsList = await friendRepo.getFriends();
-      setFriends(friendsList);
-    } catch (err) {
-      console.log("Error loading friends:", err);
-    } finally {
-      setIsLoadingFriends(false);
-    }
-  };
-
-  const toggleFriend = (friendId: string) => {
-    const newSet = new Set(selectedFriendIds);
-    if (newSet.has(friendId)) {
-      newSet.delete(friendId);
-    } else {
-      newSet.add(friendId);
-    }
-    setSelectedFriendIds(newSet);
-  };
-
-  const getTargetPlaceholder = () => {
-    switch (type) {
-      case "steps": return "Например: 50000";
-      case "distance": return "Например: 20 (км)";
-      case "calories": return "Например: 5000 (ккал)";
-      case "time": return "Например: 300 (мин)";
-    }
-  };
-
-  const selectedFriends = friends.filter((f) => selectedFriendIds.has(f.userId));
-
-  const handleCreate = async () => {
-    setError(null);
-
-    if (!currentUser) {
-      setError("Войдите в аккаунт");
-      return;
-    }
-
-    if (!title.trim()) {
-      setError("Введите название челленджа");
-      return;
-    }
-    if (!targetValue.trim() || parseInt(targetValue) <= 0) {
-      setError("Введите корректное целевое значение");
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const startDate = new Date();
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + duration);
-
-      const participants = [
-        {
-          userId: currentUser.uid,
-          displayName: currentUser.displayName || currentUser.email || "Пользователь",
-          photoUrl: currentUser.photoURL || null,
-          joinedAt: new Date().toISOString(),
-          currentValue: 0,
-        },
-      ];
-
-      const invitedFriends: FriendInfo[] = [];
-      for (const friend of selectedFriends) {
-        participants.push({
-          userId: friend.userId,
-          displayName: friend.displayName,
-          photoUrl: friend.photoUrl ?? null,
-          joinedAt: new Date().toISOString(),
-          currentValue: 0,
-        });
-        invitedFriends.push(friend);
-      }
-
-      const challengeId = await repo.createChallenge({
-        title: title.trim(),
-        description: description.trim(),
-        type,
-        targetValue: parseInt(targetValue),
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        participants,
-      });
-
-      for (const friend of invitedFriends) {
-        sendPushToUser(
-          friend.userId,
-          "Новый вызов!",
-          `${currentUser.displayName || currentUser.email || "Пользователь"} приглашает вас в челлендж "${title.trim()}"`,
-          { type: "challenge_invite", challengeId },
-        );
-      }
-
-      const invitedCount = invitedFriends.length;
+  const vm = useCreateChallengeViewModel(
+    challengeRepository,
+    friendRepository,
+    firebaseUser,
+    (invitedCount) => {
       if (invitedCount > 0) {
         Alert.alert(
           "Челлендж создан!",
@@ -183,10 +66,34 @@ export default function CreateChallengePage() {
       } else {
         router.back();
       }
-    } catch (err: any) {
-      setError(err.message || "Ошибка создания челленджа");
-    } finally {
-      setIsSaving(false);
+    },
+    friendId,
+    friendName,
+  );
+
+  const {
+    title, setTitle,
+    description, setDescription,
+    type, setType,
+    targetValue, setTargetValue,
+    duration, setDuration,
+    isSaving,
+    error,
+    friends,
+    selectedFriendIds,
+    selectedFriends,
+    showFriendSelector, setShowFriendSelector,
+    isLoadingFriends,
+    toggleFriend,
+    handleCreate,
+  } = vm;
+
+  const getTargetPlaceholder = () => {
+    switch (type) {
+      case "steps": return "Например: 50000";
+      case "distance": return "Например: 20 (км)";
+      case "calories": return "Например: 5000 (ккал)";
+      case "time": return "Например: 300 (мин)";
     }
   };
 
@@ -516,7 +423,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 8,
   },
-  createBtnText: { fontSize: 18, color: "#FFF", fontFamily: "Rimma_sans" },
+  createBtnText: { fontSize: 18, color: COLORS.bg, fontFamily: "Rimma_sans" },
   btnPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
   btnDisabled: { opacity: 0.6 },
 });

@@ -1,25 +1,26 @@
 import { useAuth } from "@/src/context/auth-context";
 import { useGoogleFitData } from "@/src/presentation/view-models/use-google-fit-data";
+import { useSwipeableTab } from "@/src/utils/use-swipeable-tab";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD", // Changed to match bg
+  card: "#F8EDAD", // Changed to match bg
+  text: "#ED7C30",
+  accent: "#ED7C30", // Changed to match text
+  muted: "#B35A22",
 } as const;
 
 const titleFont = Platform.select({
@@ -36,12 +37,23 @@ export default function MainPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { isConnected } = useAuth();
-  const { stats, steps, calories, isLoading, error, refresh } = useGoogleFitData();
+  const { stats, steps, calories, isLoading, error, refresh } =
+    useGoogleFitData();
+  const swipeHandlers = useSwipeableTab("index");
 
-  console.log("🖥️ MainPage render - isConnected:", isConnected, "steps:", steps, "calories:", calories, "stats:", stats);
+  console.log(
+    "🖥️ MainPage render - isConnected:",
+    isConnected,
+    "steps:",
+    steps,
+    "calories:",
+    calories,
+    "stats:",
+    stats,
+  );
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.root, { paddingTop: insets.top + 8 }]} {...swipeHandlers}>
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
@@ -70,7 +82,9 @@ export default function MainPage() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.progressLabel}>ПРОГРЕСС {stats.progressPercent}%</Text>
+        <Text style={styles.progressLabel}>
+          ПРОГРЕСС {stats.progressPercent}%
+        </Text>
 
         <View style={styles.heroWrap}>
           <View style={styles.ring}>
@@ -101,7 +115,9 @@ export default function MainPage() {
             style={styles.statIcon}
           />
           <View style={styles.statBarTrack}>
-            <View style={[styles.statBarFill, { width: `${stats.stepsPercent}%` }]} />
+            <View
+              style={[styles.statBarFill, { width: `${stats.stepsPercent}%` }]}
+            />
           </View>
         </View>
         <View style={styles.statRow}>
@@ -113,7 +129,10 @@ export default function MainPage() {
           />
           <View style={styles.statBarTrack}>
             <View
-              style={[styles.statBarFill, { width: `${stats.caloriesPercent}%` }]}
+              style={[
+                styles.statBarFill,
+                { width: `${stats.caloriesPercent}%` },
+              ]}
             />
           </View>
         </View>
@@ -127,7 +146,7 @@ export default function MainPage() {
         {isLoading && isConnected ? (
           <Text style={styles.loadingText}>Обновление данных...</Text>
         ) : null}
-        
+
         {isConnected && (
           <Pressable
             accessibilityRole="button"
@@ -139,7 +158,11 @@ export default function MainPage() {
               isLoading && styles.btnDisabled,
             ]}
           >
-            <MaterialCommunityIcons name="refresh" size={18} color={COLORS.accent} />
+            <MaterialCommunityIcons
+              name="refresh"
+              size={18}
+              color={COLORS.accent}
+            />
             <Text style={styles.refreshText}>
               {isLoading ? "ОБНОВЛЯЕМ..." : "ОБНОВИТЬ ДАННЫЕ"}
             </Text>
@@ -149,7 +172,10 @@ export default function MainPage() {
         <Pressable
           accessibilityRole="button"
           onPress={() => router.push("/challenges_page")}
-          style={({ pressed }) => [styles.btnPrimary, pressed && styles.btnPressed]}
+          style={({ pressed }) => [
+            styles.btnPrimary,
+            pressed && styles.btnPressed,
+          ]}
         >
           <Text style={styles.btnText}>ЧЕЛЕНДЖИ</Text>
         </Pressable>
@@ -158,14 +184,20 @@ export default function MainPage() {
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push("/leaderboard_page")}
-            style={({ pressed }) => [styles.btnHalf, pressed && styles.btnPressed]}
+            style={({ pressed }) => [
+              styles.btnHalf,
+              pressed && styles.btnPressed,
+            ]}
           >
             <Text style={styles.btnTextSmall}>ЛИДЕРБОРДЫ</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push("/device_page")}
-            style={({ pressed }) => [styles.btnHalf, pressed && styles.btnPressed]}
+            style={({ pressed }) => [
+              styles.btnHalf,
+              pressed && styles.btnPressed,
+            ]}
           >
             <Text style={styles.btnTextSmall}>УСТРОЙСТВА</Text>
           </Pressable>

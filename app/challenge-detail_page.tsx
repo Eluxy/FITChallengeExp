@@ -1,20 +1,20 @@
-import { getFirebaseAuth } from "@/src/config/firebase";
-import { FirebaseChallengeRepository } from "@/src/data/repositories/firebase-challenge-repository";
+import { useServices } from "@/src/context/service-provider";
+import { useAuth } from "@/src/context/auth-context";
 import type { Challenge } from "@/src/domain/entities/challenge";
 import { getChallengeUnit, getChallengeIcon } from "@/src/domain/entities/challenge";
+import { useChallengeDetailViewModel } from "@/src/presentation/view-models/use-challenge-detail-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",
+  card: "#F8EDAD",
+  text: "#ED7C30",
+  accent: "#ED7C30",
+  muted: "#B35A22",
   green: "#48B75A",
   gold: "#F5C518",
 };
@@ -23,44 +23,17 @@ export default function ChallengeDetailPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [challenge, setChallenge] = useState<Challenge | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isJoining, setIsJoining] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { challengeRepository } = useServices();
+  const { firebaseUser } = useAuth();
+  const currentUser = firebaseUser;
 
-  const repo = new FirebaseChallengeRepository();
-  const auth = getFirebaseAuth();
-  const currentUser = auth.currentUser;
-
-  const loadChallenge = useCallback(async () => {
-    if (!id) return;
-    setIsLoading(true);
-    try {
-      const data = await repo.getChallenge(id);
-      setChallenge(data);
-    } catch (err) {
-      setError("Не удалось загрузить челлендж");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    loadChallenge();
-  }, [loadChallenge]);
-
-  const handleJoin = async () => {
-    if (!id) return;
-    setIsJoining(true);
-    try {
-      await repo.joinChallenge(id);
-      await loadChallenge();
-    } catch (err: any) {
-      setError(err.message || "Ошибка");
-    } finally {
-      setIsJoining(false);
-    }
-  };
+  const {
+    challenge,
+    isLoading,
+    isJoining,
+    error,
+    joinChallenge,
+  } = useChallengeDetailViewModel(challengeRepository, id);
 
   if (isLoading) {
     return (
@@ -195,7 +168,7 @@ export default function ChallengeDetailPage() {
               pressed && styles.btnPressed,
               isJoining && styles.btnDisabled,
             ]}
-            onPress={handleJoin}
+            onPress={joinChallenge}
             disabled={isJoining}
           >
             {isJoining ? (

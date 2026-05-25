@@ -1,10 +1,6 @@
-import { useAuth } from "@/src/context/auth-context";
-import { getFirebaseAuth } from "@/src/config/firebase";
-import { getFirebaseDb } from "@/src/config/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { useGoalsViewModel } from "@/src/presentation/view-models/use-goals-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,83 +13,33 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { UserGoals } from "@/src/domain/entities/user-settings";
-import { DEFAULT_GOALS } from "@/src/domain/entities/user-settings";
 
 const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
+  bg: "#F8EDAD",
+  cream: "#F8EDAD",
+  card: "#F8EDAD",
+  text: "#ED7C30",
+  accent: "#ED7C30",
+  muted: "#B35A22",
 };
 
 export default function GoalsPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { userInfo } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
 
-  const [dailySteps, setDailySteps] = useState(String(DEFAULT_GOALS.dailySteps));
-  const [dailyCalories, setDailyCalories] = useState(String(DEFAULT_GOALS.dailyCalories));
-  const [dailyDistance, setDailyDistance] = useState(String(DEFAULT_GOALS.dailyDistanceKm));
-
-  useEffect(() => {
-    loadGoals();
-  }, []);
-
-  const loadGoals = async () => {
-    try {
-      const auth = getFirebaseAuth();
-      const user = auth.currentUser;
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      const db = getFirebaseDb();
-      const docRef = doc(db, "users", user.uid);
-      const docSnap = await getDoc(docRef);
-
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const goals = data.goals as UserGoals | undefined;
-        if (goals) {
-          setDailySteps(String(goals.dailySteps));
-          setDailyCalories(String(goals.dailyCalories));
-          setDailyDistance(String(goals.dailyDistanceKm));
-        }
-      }
-    } catch (err) {
-      console.log("Error loading goals:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const {
+    isLoading,
+    isSaving,
+    dailySteps, setDailySteps,
+    dailyCalories, setDailyCalories,
+    dailyDistance, setDailyDistance,
+    saveGoals,
+  } = useGoalsViewModel();
 
   const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const auth = getFirebaseAuth();
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const db = getFirebaseDb();
-      const goals: UserGoals = {
-        dailySteps: parseInt(dailySteps) || DEFAULT_GOALS.dailySteps,
-        dailyCalories: parseInt(dailyCalories) || DEFAULT_GOALS.dailyCalories,
-        dailyDistanceKm: parseFloat(dailyDistance) || DEFAULT_GOALS.dailyDistanceKm,
-      };
-
-      await setDoc(doc(db, "users", user.uid), { goals }, { merge: true });
-      router.back();
-    } catch (err) {
-      console.log("Error saving goals:", err);
-    } finally {
-      setIsSaving(false);
-    }
+    const error = await saveGoals();
+    if (!error) router.back();
+    else console.log("Error saving goals:", error);
   };
 
   if (isLoading) {

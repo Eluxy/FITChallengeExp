@@ -1,4 +1,6 @@
 import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
+import type { FriendInfo, FriendRequest, UserSearchResult } from "@/src/domain/entities/friend";
+import type { FriendRepository } from "@/src/domain/repositories/friend-repository";
 import {
   collection,
   doc,
@@ -8,7 +10,6 @@ import {
   where,
   setDoc,
   updateDoc,
-  deleteDoc,
   arrayUnion,
   arrayRemove,
   orderBy,
@@ -17,31 +18,7 @@ import {
   endAt,
 } from "firebase/firestore";
 
-export type FriendRequest = {
-  id: string;
-  fromUserId: string;
-  fromName: string;
-  fromPhoto?: string;
-  toUserId: string;
-  status: "pending" | "accepted" | "rejected";
-  createdAt: string;
-};
-
-export type FriendInfo = {
-  userId: string;
-  displayName: string;
-  photoUrl?: string;
-  lastActive?: string;
-};
-
-export type UserSearchResult = {
-  userId: string;
-  displayName: string;
-  photoUrl?: string;
-  requestStatus: "none" | "sent" | "received" | "friends";
-};
-
-export class FirebaseFriendRepository {
+export class FirebaseFriendRepository implements FriendRepository {
   private get friendRequestsCol() {
     return collection(getFirebaseDb(), "friend_requests");
   }
