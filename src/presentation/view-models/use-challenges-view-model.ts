@@ -1,6 +1,7 @@
 import type { Challenge, ChallengeType } from "@/src/domain/entities/challenge";
 import type { ChallengeRepository } from "@/src/domain/repositories/challenge-repository";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useState } from "react";
 
 export type ChallengesTab = "active" | "daily" | "completed";
 
@@ -37,9 +38,11 @@ export function useChallengesViewModel(
     }
   }, [userId, challengeRepository]);
 
-  useEffect(() => {
-    loadChallenges();
-  }, [loadChallenges]);
+  useFocusEffect(
+    useCallback(() => {
+      loadChallenges();
+    }, [loadChallenges]),
+  );
 
   const createDailyChallenge = useCallback(
     async (type: ChallengeType, targetValue: number) => {

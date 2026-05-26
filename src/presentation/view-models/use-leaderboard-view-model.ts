@@ -1,5 +1,6 @@
 import { fetchDailyProgressRange } from "@/src/data/firebase/firestore-rest";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useState } from "react";
 
 export type LeaderEntry = {
   userId: string;
@@ -69,9 +70,11 @@ export function useLeaderboardViewModel(
     }
   }, [isConnected, myUserId]);
 
-  useEffect(() => {
-    loadLeaderboard();
-  }, [loadLeaderboard]);
+  useFocusEffect(
+    useCallback(() => {
+      loadLeaderboard();
+    }, [loadLeaderboard]),
+  );
 
   return {
     leaders,

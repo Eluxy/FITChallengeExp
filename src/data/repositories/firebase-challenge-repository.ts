@@ -1,6 +1,7 @@
 import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
 import type { Challenge, ChallengeParticipant, ChallengeStatus, ChallengeType } from "@/src/domain/entities/challenge";
 import type { ChallengeRepository } from "@/src/domain/repositories/challenge-repository";
+import { createNotification } from "@/src/services/notifications/create-notification";
 import {
   collection,
   doc,
@@ -78,6 +79,21 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
     };
 
     const docRef = await addDoc(this.challengesCol, challengeData);
+
+    const invitedParticipants = participants.filter((p) => p.userId !== user.uid);
+    const creatorName = user.displayName || user.email || "Пользователь";
+    await Promise.all(
+      invitedParticipants.map((p) =>
+        createNotification(
+          p.userId,
+          "challenge_invite",
+          "Новый челлендж!",
+          `${creatorName} приглашает вас в "${params.title}"`,
+          { challengeId: docRef.id },
+        ),
+      ),
+    );
+
     return docRef.id;
   }
 
@@ -182,6 +198,16 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
     await updateDoc(docRef, {
       participants: [...challenge.participants, newParticipant],
     });
+
+    if (challenge.creatorId && challenge.creatorId !== user.uid) {
+      await createNotification(
+        challenge.creatorId,
+        "challenge_join",
+        "Новый участник!",
+        `${newParticipant.displayName} присоединился к "${challenge.title}"`,
+        { challengeId },
+      );
+    }
   }
 
   async updateParticipantValue(challengeId: string, userId: string, currentValue: number): Promise<void> {
@@ -204,6 +230,28 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
         winnerId: userId,
         completedAt: new Date().toISOString(),
       });
+
+      const winnerName = updatedParticipants.find((p) => p.userId === userId)?.displayName || "Победитель";
+      await Promise.all(
+        updatedParticipants.map((p) => {
+          if (p.userId === userId) {
+            return createNotification(
+              p.userId,
+              "challenge_win",
+              "Победа!",
+              `Вы выиграли челлендж "${challenge.title}"!`,
+              { challengeId },
+            );
+          }
+          return createNotification(
+            p.userId,
+            "challenge_lose",
+            "Челлендж завершён",
+            `Челлендж "${challenge.title}" завершён. Победитель: ${winnerName}`,
+            { challengeId },
+          );
+        }),
+      );
     }
   }
 
@@ -320,6 +368,7 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
     for (const docSnap of batch) {
       const data = docSnap.data();
       const participants: ChallengeParticipant[] = data.participants ?? [];
+      const challengeTitle = data.title ?? "Челлендж";
 
       const updateData: Record<string, any> = {
         status: "completed",
@@ -327,13 +376,51 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
       };
 
       const hasProgress = participants.some((p) => p.currentValue > 0);
+      let winnerId: string | undefined;
+
       if (hasProgress) {
         const sorted = [...participants].sort((a, b) => b.currentValue - a.currentValue);
-        updateData.winnerId = sorted[0].userId;
-        winners.push(sorted[0].userId);
+        winnerId = sorted[0].userId;
+        updateData.winnerId = winnerId;
+        winners.push(winnerId);
       }
 
       await updateDoc(doc(this.challengesCol, docSnap.id), updateData);
+
+      const winnerName = winnerId
+        ? participants.find((p) => p.userId === winnerId)?.displayName || "Победитель"
+        : null;
+
+      await Promise.all(
+        participants.map((p) => {
+          if (winnerId && p.userId === winnerId) {
+            return createNotification(
+              p.userId,
+              "challenge_win",
+              "Победа!",
+              `Вы выиграли челлендж "${challengeTitle}"!`,
+              { challengeId: docSnap.id },
+            );
+          }
+          if (winnerId) {
+            return createNotification(
+              p.userId,
+              "challenge_lose",
+              "Челлендж завершён",
+              `Челлендж "${challengeTitle}" завершён. Победитель: ${winnerName}`,
+              { challengeId: docSnap.id },
+            );
+          }
+          return createNotification(
+            p.userId,
+            "challenge_end",
+            "Челлендж завершён",
+            `Челлендж "${challengeTitle}" завершён. Никто не выполнил цель.`,
+            { challengeId: docSnap.id },
+          );
+        }),
+      );
+
       completed++;
     }
 

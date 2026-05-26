@@ -1,6 +1,7 @@
 import type { FriendInfo, FriendRequest, UserSearchResult } from "@/src/domain/entities/friend";
 import type { FriendRepository } from "@/src/domain/repositories/friend-repository";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useState } from "react";
 
 export function useFriendsViewModel(
   friendRepository: FriendRepository,
@@ -34,9 +35,11 @@ export function useFriendsViewModel(
     }
   }, [isConnected, friendRepository]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData]),
+  );
 
   const handleSearch = useCallback(async (query: string) => {
     setSearchQuery(query);

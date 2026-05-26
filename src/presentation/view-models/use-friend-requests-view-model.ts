@@ -1,6 +1,7 @@
 import type { FriendRequest } from "@/src/domain/entities/friend";
 import type { FriendRepository } from "@/src/domain/repositories/friend-repository";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useState } from "react";
 
 export function useFriendRequestsViewModel(
   friendRepository: FriendRepository,
@@ -22,9 +23,11 @@ export function useFriendRequestsViewModel(
     }
   }, [isConnected, friendRepository]);
 
-  useEffect(() => {
-    loadRequests();
-  }, [loadRequests]);
+  useFocusEffect(
+    useCallback(() => {
+      loadRequests();
+    }, [loadRequests]),
+  );
 
   const handleAccept = useCallback(async (id: string, req?: FriendRequest) => {
     try {

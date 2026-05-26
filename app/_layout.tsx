@@ -4,15 +4,18 @@ import {
     ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { Appearance } from "react-native";
+import { Appearance, View } from "react-native";
 import "react-native-reanimated";
 
-import { AuthProvider } from "@/src/context/auth-context";
-import { ServiceProvider } from "@/src/context/service-provider";
+import { AuthProvider, useAuth } from "@/src/context/auth-context";
+import { ServiceProvider, useServices } from "@/src/context/service-provider";
 import { useThemeInitializer } from "@/src/presentation/view-models/use-theme-initializer";
+import { useNotificationsViewModel } from "@/src/presentation/view-models/use-notifications-view-model";
+import type { AppNotification } from "@/src/domain/entities/notification";
+import { InAppToast } from "@/components/in-app-toast";
 import {
   setupNotifications,
   scheduleDailyReminder,
@@ -21,6 +24,39 @@ import {
 export const unstable_settings = {
   anchor: "(tabs)",
 };
+
+function ToastManager() {
+  const router = useRouter();
+  const { firebaseUser } = useAuth();
+  const { notificationRepository } = useServices();
+  const { latestNotif, clearLatestNotif } = useNotificationsViewModel(
+    notificationRepository,
+    firebaseUser?.uid,
+  );
+
+  const handleToastPress = (notif: AppNotification) => {
+    const data = notif.data;
+    clearLatestNotif();
+    if (!data) return;
+    if (data.challengeId) {
+      router.push(`/challenge-detail_page?id=${data.challengeId}`);
+    } else if (data.achievementId) {
+      router.push("/achievements_page");
+    } else {
+      router.push("/notifications_page");
+    }
+  };
+
+  return (
+    <View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 9999 }}>
+      <InAppToast
+        notification={latestNotif}
+        onDismiss={clearLatestNotif}
+        onPress={handleToastPress}
+      />
+    </View>
+  );
+}
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const themeOverride = useThemeInitializer();
@@ -35,6 +71,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider value={effectiveTheme === "dark" ? DarkTheme : DefaultTheme}>
       {children}
+      <ToastManager />
       <StatusBar style="auto" />
     </ThemeProvider>
   );
@@ -69,6 +106,7 @@ export default function RootLayout() {
             <Stack.Screen name="chat_page" options={{ headerShown: false }} />
             <Stack.Screen name="friend-requests_page" options={{ headerShown: false }} />
             <Stack.Screen name="notification-settings_page" options={{ headerShown: false }} />
+            <Stack.Screen name="notifications_page" options={{ headerShown: false }} />
             <Stack.Screen name="privacy_page" options={{ headerShown: false }} />
             <Stack.Screen name="theme_page" options={{ headerShown: false }} />
           </Stack>

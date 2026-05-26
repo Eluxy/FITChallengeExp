@@ -1,6 +1,7 @@
 import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
 import type { FriendInfo, FriendRequest, UserSearchResult } from "@/src/domain/entities/friend";
 import type { FriendRepository } from "@/src/domain/repositories/friend-repository";
+import { createNotification } from "@/src/services/notifications/create-notification";
 import {
   collection,
   doc,
@@ -143,6 +144,14 @@ export class FirebaseFriendRepository implements FriendRepository {
     const docRef = doc(this.friendRequestsCol);
     await setDoc(docRef, requestData);
 
+    await createNotification(
+      toUserId,
+      "friend_request",
+      "Заявка в друзья",
+      `${requestData.fromName} хочет добавить вас в друзья`,
+      {},
+    );
+
     return { success: true, message: "Заявка отправлена" };
   }
 
@@ -190,6 +199,14 @@ export class FirebaseFriendRepository implements FriendRepository {
       }, { merge: true }),
       updateDoc(requestRef, { status: "accepted" }),
     ]);
+
+    await createNotification(
+      request.fromUserId,
+      "friend_accepted",
+      "Заявка принята",
+      `${user.displayName || user.email || "Пользователь"} принял(а) вашу заявку в друзья`,
+      {},
+    );
 
     return { success: true, message: "Заявка принята" };
   }

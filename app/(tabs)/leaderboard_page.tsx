@@ -3,6 +3,7 @@ import { useLeaderboardViewModel } from "@/src/presentation/view-models/use-lead
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -40,7 +41,8 @@ function getMedalIcon(index: number) {
 export default function LeaderboardPage() {
   const insets = useSafeAreaInsets();
   const { isConnected, userInfo } = useAuth();
-  const { leaders, isLoading, error, myUserId, refresh } = useLeaderboardViewModel(
+  const { leaders, isLoading, error, myUserId, refresh } =
+    useLeaderboardViewModel(
     userInfo?.email,
     isConnected,
   );
@@ -50,6 +52,9 @@ export default function LeaderboardPage() {
       style={[styles.root, { paddingTop: insets.top + 8 }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={isLoading} onRefresh={refresh} />
+      }
     >
       <View style={styles.header}>
         <MaterialCommunityIcons
@@ -58,12 +63,7 @@ export default function LeaderboardPage() {
           color={COLORS.text}
         />
         <Text style={styles.headerTitle}>ЛИДЕРБОРД</Text>
-        <MaterialCommunityIcons
-          name="refresh"
-          size={24}
-          color={COLORS.text}
-          onPress={refresh}
-        />
+
       </View>
 
       <View style={styles.card}>
