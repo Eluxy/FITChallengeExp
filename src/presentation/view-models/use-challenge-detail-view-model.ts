@@ -1,6 +1,7 @@
 import type { Challenge } from "@/src/domain/entities/challenge";
 import type { ChallengeRepository } from "@/src/domain/repositories/challenge-repository";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useState } from "react";
 
 export function useChallengeDetailViewModel(
   challengeRepository: ChallengeRepository,
@@ -24,9 +25,11 @@ export function useChallengeDetailViewModel(
     }
   }, [challengeId, challengeRepository]);
 
-  useEffect(() => {
-    loadChallenge();
-  }, [loadChallenge]);
+  useFocusEffect(
+    useCallback(() => {
+      loadChallenge();
+    }, [loadChallenge]),
+  );
 
   const joinChallenge = async () => {
     if (!challengeId) return;

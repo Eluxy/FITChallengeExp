@@ -5,7 +5,14 @@ import {
 } from "@/src/presentation/view-models/use-statistics-view-model";
 import { useSwipeableTab } from "@/src/utils/use-swipeable-tab";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const COLORS = {
@@ -27,13 +34,18 @@ export default function StatisticsPage() {
     stats,
     isLoading,
     error,
-    refresh: loadStatistics,
+    refresh,
   } = useStatisticsViewModel(userInfo?.email, isConnected);
   const swipeHandlers = useSwipeableTab("explore");
 
   return (
-    <View
+    <ScrollView
       style={[styles.root, { paddingTop: insets.top + 8 }]}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={isLoading} onRefresh={refresh} />
+      }
       {...swipeHandlers}
     >
       <View style={styles.header}>
@@ -96,32 +108,17 @@ export default function StatisticsPage() {
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <View style={styles.actionsRow}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={loadStatistics}
-            style={({ pressed }) => [
-              styles.actionButton,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Text style={styles.actionButtonText}>
-              {isLoading ? "ЗАГРУЗКА..." : "ОБНОВИТЬ"}
-            </Text>
-          </Pressable>
+        <View style={styles.bestDayCard}>
+          <Text style={styles.bestDayTop}>ЛУЧШИЙ ДЕНЬ</Text>
+          <Text style={styles.bestDayDate}>
+            {stats.bestDayDate.toUpperCase()}
+          </Text>
+          <Text style={styles.bestDayNumbers}>
+            {stats.bestDaySteps.toLocaleString("ru-RU")} шагов
+          </Text>
         </View>
       </View>
-
-      <View style={styles.bestDayCard}>
-        <Text style={styles.bestDayTop}>ЛУЧШИЙ ДЕНЬ</Text>
-        <Text style={styles.bestDayDate}>
-          {stats.bestDayDate.toUpperCase()}
-        </Text>
-        <Text style={styles.bestDayNumbers}>
-          {stats.bestDaySteps.toLocaleString("ru-RU")} шагов
-        </Text>
-      </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -129,7 +126,10 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.bg,
+  },
+  scrollContent: {
     paddingHorizontal: 18,
+    paddingBottom: 24,
   },
   header: {
     backgroundColor: COLORS.cream,
@@ -216,24 +216,6 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 16,
     backgroundColor: "#EFE1CB",
-  },
-  actionsRow: {
-    marginTop: 14,
-    gap: 8,
-  },
-  actionButton: {
-    backgroundColor: COLORS.cream,
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: "center",
-  },
-  actionButtonText: {
-    fontSize: 16,
-    color: COLORS.accent,
-    fontFamily: "Rimma_sans",
-  },
-  buttonPressed: {
-    opacity: 0.85,
   },
   errorText: {
     marginTop: 10,

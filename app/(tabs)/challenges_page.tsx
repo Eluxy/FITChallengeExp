@@ -8,6 +8,7 @@ import {
   getChallengeUnit,
   getChallengeIcon,
 } from "@/src/domain/entities/challenge";
+import { NotificationBell } from "@/components/notification-bell";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -18,6 +19,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -256,16 +258,16 @@ export default function ChallengesPage() {
       style={[styles.root, { paddingTop: insets.top + 8 }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={isLoading} onRefresh={refresh} />
+      }
       {...swipeHandlers}
     >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>ЧЕЛЛЕНДЖИ</Text>
-        <MaterialCommunityIcons
-          name="trophy-outline"
-          size={24}
-          color={COLORS.text}
-          onPress={refresh}
-        />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <NotificationBell color={COLORS.text} />
+        </View>
       </View>
 
       <View style={styles.switchCard}>

@@ -79,8 +79,6 @@ export class AuthService {
     GoogleSignin.configure({
       webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
       scopes: GOOGLE_FIT_SCOPES,
-      offlineAccess: true,
-      forceCodeForRefreshToken: true,
     });
   }
 
@@ -116,7 +114,6 @@ export class AuthService {
       }
 
       const tokens = await GoogleSignin.getTokens();
-      const googleAccessToken = tokens.accessToken;
 
       const credential = GoogleAuthProvider.credential(idToken);
       const result = await signInWithCredential(this.auth, credential);
@@ -127,7 +124,7 @@ export class AuthService {
         result.user.photoURL,
       );
 
-      return { success: true, user: result.user, accessToken: googleAccessToken };
+      return { success: true, user: result.user, accessToken: tokens.accessToken };
     } catch (err: any) {
       if (err.code === statusCodes.SIGN_IN_CANCELLED) {
         return { success: false, error: "Вход отменён" };

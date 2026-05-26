@@ -1,6 +1,8 @@
 import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
 import type { UserAchievement } from "@/src/domain/entities/achievement";
 import type { AchievementRepository } from "@/src/domain/repositories/achievement-repository";
+import { ACHIEVEMENTS } from "@/src/services/gamification/achievements";
+import { createNotification } from "@/src/services/notifications/create-notification";
 import {
   collection,
   doc,
@@ -32,6 +34,16 @@ export class FirebaseAchievementRepository implements AchievementRepository {
       achievementId,
       unlockedAt: new Date().toISOString(),
     });
+
+    const def = ACHIEVEMENTS.find((a) => a.id === achievementId);
+    const title = def?.title ?? achievementId;
+    await createNotification(
+      userId,
+      "achievement",
+      "Новое достижение!",
+      `Вы открыли достижение "${title}"`,
+      { achievementId },
+    );
   }
 
   async isAchievementUnlocked(userId: string, achievementId: string): Promise<boolean> {

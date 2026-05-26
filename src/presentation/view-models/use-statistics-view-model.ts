@@ -1,5 +1,6 @@
 import { fetchDailyProgressRange } from "@/src/data/firebase/firestore-rest";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useMemo, useState } from "react";
 
 export type Period = "day" | "month" | "year";
 
@@ -117,9 +118,11 @@ export function useStatisticsViewModel(
     }
   }, [period, progressUserId, isConnected]);
 
-  useEffect(() => {
-    loadStatistics();
-  }, [loadStatistics]);
+  useFocusEffect(
+    useCallback(() => {
+      loadStatistics();
+    }, [loadStatistics]),
+  );
 
   return {
     period,

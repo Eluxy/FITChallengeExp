@@ -1,12 +1,14 @@
 import { useAuth } from "@/src/context/auth-context";
 import { useGoogleFitData } from "@/src/presentation/view-models/use-google-fit-data";
 import { useSwipeableTab } from "@/src/utils/use-swipeable-tab";
+import { NotificationBell } from "@/components/notification-bell";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -64,23 +66,29 @@ export default function MainPage() {
           <MaterialCommunityIcons name="menu" size={28} color={COLORS.text} />
         </Pressable>
         <Text style={styles.headerTitle}>FitChallnge</Text>
-        <Pressable
-          accessibilityRole="button"
-          hitSlop={12}
-          onPress={() => router.push("/account_page")}
-          style={styles.headerIconBtn}
-        >
-          <MaterialCommunityIcons
-            name="account-circle-outline"
-            size={28}
-            color={COLORS.text}
-          />
-        </Pressable>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <NotificationBell color={COLORS.text} />
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={() => router.push("/account_page")}
+            style={styles.headerIconBtn}
+          >
+            <MaterialCommunityIcons
+              name="account-circle-outline"
+              size={28}
+              color={COLORS.text}
+            />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={refresh} />
+        }
       >
         <Text style={styles.progressLabel}>
           ПРОГРЕСС {stats.progressPercent}%
@@ -146,28 +154,6 @@ export default function MainPage() {
         {isLoading && isConnected ? (
           <Text style={styles.loadingText}>Обновление данных...</Text>
         ) : null}
-
-        {isConnected && (
-          <Pressable
-            accessibilityRole="button"
-            onPress={refresh}
-            disabled={isLoading}
-            style={({ pressed }) => [
-              styles.refreshButton,
-              pressed && styles.btnPressed,
-              isLoading && styles.btnDisabled,
-            ]}
-          >
-            <MaterialCommunityIcons
-              name="refresh"
-              size={18}
-              color={COLORS.accent}
-            />
-            <Text style={styles.refreshText}>
-              {isLoading ? "ОБНОВЛЯЕМ..." : "ОБНОВИТЬ ДАННЫЕ"}
-            </Text>
-          </Pressable>
-        )}
 
         <Pressable
           accessibilityRole="button"
@@ -375,26 +361,6 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     textAlign: "center",
     fontFamily: "Rimma_sans",
-  },
-  refreshButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: COLORS.cream,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  refreshText: {
-    fontSize: 14,
-    color: COLORS.accent,
-    fontFamily: "Rimma_sans",
-  },
-  btnDisabled: {
-    opacity: 0.5,
   },
   actionsRow: {
     width: "100%",
