@@ -42,6 +42,7 @@ const EMPTY_SUMMARY: GoogleFitSummary = {
 const GOOGLE_FIT_SCOPES = [
   "https://www.googleapis.com/auth/fitness.activity.read",
   "https://www.googleapis.com/auth/fitness.body.read",
+  "https://www.googleapis.com/auth/fitness.location.read",
 ];
 
 export function useGoogleFitStatsViewModel() {

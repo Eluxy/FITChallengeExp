@@ -75,6 +75,21 @@ export async function upsertDailyProgress(params: {
   console.log("✅ Saved to Firebase successfully");
 }
 
+export async function fetchDailyProgress(documentId: string): Promise<number | null> {
+  try {
+    const { documentsUrl, apiKey } = getFirestoreBaseUrl();
+    const url = `${documentsUrl}/daily_progress/${documentId}?key=${apiKey}`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const json = await response.json();
+    const fields = json.fields;
+    if (!fields?.steps?.integerValue) return null;
+    return parseInteger(fields.steps.integerValue);
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchDailyProgressRange(params: {
   userId: string;
   startDate: string;
