@@ -24,6 +24,7 @@ export type AuthMethod = "google" | "email" | null;
 const GOOGLE_FIT_SCOPES = [
   "https://www.googleapis.com/auth/fitness.activity.read",
   "https://www.googleapis.com/auth/fitness.body.read",
+  "https://www.googleapis.com/auth/fitness.location.read",
 ];
 
 function isValidEmail(email: string): boolean {

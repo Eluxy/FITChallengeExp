@@ -17,6 +17,7 @@ const SAVE_INTERVAL_MS = 2 * 60 * 1000; // 2 минуты
 const GOOGLE_FIT_SCOPES = [
   "https://www.googleapis.com/auth/fitness.activity.read",
   "https://www.googleapis.com/auth/fitness.body.read",
+  "https://www.googleapis.com/auth/fitness.location.read",
 ];
 
 function getDayRange() {
