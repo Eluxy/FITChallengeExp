@@ -2,6 +2,7 @@ import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
 import type { Challenge, ChallengeParticipant, ChallengeStatus, ChallengeType } from "@/src/domain/entities/challenge";
 import type { ChallengeRepository } from "@/src/domain/repositories/challenge-repository";
 import { createNotification } from "@/src/services/notifications/create-notification";
+import { getCache, saveCache, CHALLENGES_CACHE_KEY, SYSTEM_CHALLENGES_CACHE_KEY } from "@/src/services/storage/cache-service";
 import {
   collection,
   doc,
@@ -16,6 +17,16 @@ import {
   deleteDoc,
   writeBatch,
 } from "firebase/firestore";
+
+function withTimeout<T>(promise: Promise<T>, ms = 3000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
 
 function challengeFromDoc(id: string, data: any): Challenge {
   return {
@@ -99,7 +110,7 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
 
   async getChallenge(id: string): Promise<Challenge | null> {
     const docRef = doc(this.challengesCol, id);
-    const docSnap = await getDoc(docRef);
+    const docSnap = await withTimeout(getDoc(docRef));
     if (!docSnap.exists()) return null;
     return challengeFromDoc(id, docSnap.data());
   }
@@ -110,31 +121,31 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
       where("status", "==", "active"),
       orderBy("endDate", "asc"),
     );
-    const snapshot = await getDocs(q);
+    const snapshot = await withTimeout(getDocs(q));
     return snapshot.docs.map((d) => challengeFromDoc(d.id, d.data()));
   }
 
    async getUserChallenges(userId: string): Promise<Challenge[]> {
-     try {
-       // Get challenges where user is creator (reliable query)
-       const creatorQ = query(
-         this.challengesCol,
-         where("creatorId", "==", userId),
-         orderBy("createdAt", "desc")
-       );
-       const creatorSnapshot = await getDocs(creatorQ);
-       const creatorChallenges = creatorSnapshot.docs.map((d) => 
-         challengeFromDoc(d.id, d.data())
-       );
+      try {
+        // Get challenges where user is creator (reliable query)
+        const creatorQ = query(
+          this.challengesCol,
+          where("creatorId", "==", userId),
+          orderBy("createdAt", "desc")
+        );
+        const creatorSnapshot = await withTimeout(getDocs(creatorQ));
+        const creatorChallenges = creatorSnapshot.docs.map((d) => 
+          challengeFromDoc(d.id, d.data())
+        );
 
-       // Get recent challenges to check for participant matches
-       // We limit to avoid loading too much data; adjust as needed
-       const recentQ = query(
-         this.challengesCol,
-         orderBy("createdAt", "desc"),
-         limit(50) // Adjust this limit based on expected usage
-       );
-       const recentSnapshot = await getDocs(recentQ);
+        // Get recent challenges to check for participant matches
+        // We limit to avoid loading too much data; adjust as needed
+        const recentQ = query(
+          this.challengesCol,
+          orderBy("createdAt", "desc"),
+          limit(50) // Adjust this limit based on expected usage
+        );
+        const recentSnapshot = await withTimeout(getDocs(recentQ));
        const recentChallenges = recentSnapshot.docs.map((d) => 
          challengeFromDoc(d.id, d.data())
        );
@@ -156,23 +167,37 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
        });
 
        // Sort by createdAt descending
-       return uniqueChallenges.sort((a, b) => 
+       const sorted = uniqueChallenges.sort((a, b) => 
          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
        );
-     } catch (error) {
-       console.error("Error in getUserChallenges:", error);
-       // Fallback to just creator challenges on error
-       const creatorQ = query(
-         this.challengesCol,
-         where("creatorId", "==", userId),
-         orderBy("createdAt", "desc")
-       );
-       const creatorSnapshot = await getDocs(creatorQ);
-       return creatorSnapshot.docs.map((d) => 
-         challengeFromDoc(d.id, d.data())
-       );
-     }
-   }
+
+      saveCache(CHALLENGES_CACHE_KEY, sorted).catch(() => {});
+
+      return sorted;
+    } catch (error) {
+      console.error("Error in getUserChallenges:", error);
+      try { const cached = await getCache<Challenge[]>(CHALLENGES_CACHE_KEY); if (cached) return cached; } catch {}
+      return [];
+    }
+  }
+
+  async getSystemChallenges(): Promise<Challenge[]> {
+    try {
+      const q = query(
+        this.challengesCol,
+        where("isSystem", "==", true),
+        where("status", "in", ["pending", "active"]),
+      );
+      const snapshot = await withTimeout(getDocs(q));
+      const result = snapshot.docs.map((d) => challengeFromDoc(d.id, d.data()));
+      saveCache(SYSTEM_CHALLENGES_CACHE_KEY, result).catch(() => {});
+      return result;
+    } catch (error) {
+      console.error("Error in getSystemChallenges:", error);
+      try { const cached = await getCache<Challenge[]>(SYSTEM_CHALLENGES_CACHE_KEY); if (cached) return cached; } catch {}
+      return [];
+    }
+  }
 
   async joinChallenge(challengeId: string): Promise<void> {
     const auth = getFirebaseAuth();
@@ -180,7 +205,7 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
     if (!user) throw new Error("Not authenticated");
 
     const docRef = doc(this.challengesCol, challengeId);
-    const docSnap = await getDoc(docRef);
+    const docSnap = await withTimeout(getDoc(docRef));
     if (!docSnap.exists()) throw new Error("Challenge not found");
 
     const challenge = challengeFromDoc(challengeId, docSnap.data());
@@ -212,7 +237,7 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
 
   async updateParticipantValue(challengeId: string, userId: string, currentValue: number): Promise<void> {
     const docRef = doc(this.challengesCol, challengeId);
-    const docSnap = await getDoc(docRef);
+    const docSnap = await withTimeout(getDoc(docRef));
     if (!docSnap.exists()) return;
 
     const challenge = challengeFromDoc(challengeId, docSnap.data());
@@ -275,16 +300,6 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
     await updateDoc(docRef, { status: "cancelled" });
   }
 
-  async getSystemChallenges(): Promise<Challenge[]> {
-    const q = query(
-      this.challengesCol,
-      where("isSystem", "==", true),
-      where("status", "in", ["pending", "active"]),
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => challengeFromDoc(d.id, d.data()));
-  }
-
   async getCompletedChallenges(userId: string): Promise<Challenge[]> {
     try {
       const creatorQ = query(
@@ -292,7 +307,7 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
         where("status", "==", "completed"),
         where("creatorId", "==", userId),
       );
-      const creatorSnapshot = await getDocs(creatorQ);
+      const creatorSnapshot = await withTimeout(getDocs(creatorQ));
       const creatorChallenges = creatorSnapshot.docs.map((d) =>
         challengeFromDoc(d.id, d.data()),
       );
@@ -302,7 +317,7 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
         where("status", "==", "completed"),
         limit(50),
       );
-      const allSnapshot = await getDocs(allQ);
+      const allSnapshot = await withTimeout(getDocs(allQ));
       const participantChallenges = allSnapshot.docs
         .map((d) => challengeFromDoc(d.id, d.data()))
         .filter((challenge) =>
@@ -312,7 +327,7 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
 
       const allChallenges = [...creatorChallenges, ...participantChallenges];
       const seenIds = new Set<string>();
-      return allChallenges
+      const result = allChallenges
         .filter((challenge) => {
           if (seenIds.has(challenge.id)) return false;
           seenIds.add(challenge.id);
@@ -322,8 +337,17 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
+
+      const cacheKey = `@fitapp_completed_challenges_${userId}`;
+      saveCache(cacheKey, result).catch(() => {});
+      return result;
     } catch (error) {
       console.error("Error in getCompletedChallenges:", error);
+      try {
+        const ck = `@fitapp_completed_challenges_${userId}`;
+        const cached = await getCache<Challenge[]>(ck);
+        if (cached) return cached;
+      } catch {}
       return [];
     }
   }
@@ -334,7 +358,7 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
     if (!user) throw new Error("Не авторизован");
 
     const docRef = doc(this.challengesCol, challengeId);
-    const docSnap = await getDoc(docRef);
+    const docSnap = await withTimeout(getDoc(docRef));
     if (!docSnap.exists()) throw new Error("Челлендж не найден");
 
     const data = docSnap.data();
@@ -343,7 +367,7 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
     }
 
     const messagesCol = collection(docRef, "messages");
-    const messagesSnap = await getDocs(messagesCol);
+    const messagesSnap = await withTimeout(getDocs(messagesCol));
     const batch = writeBatch(getFirebaseDb());
     messagesSnap.docs.forEach((msgDoc) => batch.delete(msgDoc.ref));
     batch.delete(docRef);
@@ -356,7 +380,7 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
       this.challengesCol,
       where("status", "==", "active"),
     );
-    const snapshot = await getDocs(activeQ);
+    const snapshot = await withTimeout(getDocs(activeQ));
     let completed = 0;
     const winners: string[] = [];
 

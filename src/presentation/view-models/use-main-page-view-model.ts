@@ -150,6 +150,12 @@ export function useMainPageViewModel() {
           endTimeMillis: range.endTimeMillis,
         });
 
+        if (summary === null) {
+          setError("Не удалось загрузить данные из Google Fit");
+          setIsLoading(false);
+          return;
+        }
+
         console.log("📊 Summary received:", summary);
         console.log("📊 Steps:", summary.steps, "Calories:", summary.calories);
         

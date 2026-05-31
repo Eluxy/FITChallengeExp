@@ -100,7 +100,30 @@ export async function fetchDailyProgressRange(params: {
 
   console.log("📊 Fetching stats from Firebase for userId:", params.userId, "range:", params.startDate, "-", params.endDate);
 
-  // Запрашиваем только по дате - без составного индекса
+  const filters = [
+    {
+      fieldFilter: {
+        field: { fieldPath: "userId" },
+        op: "EQUAL",
+        value: { stringValue: params.userId },
+      },
+    },
+    {
+      fieldFilter: {
+        field: { fieldPath: "date" },
+        op: "GREATER_THAN_OR_EQUAL",
+        value: { stringValue: params.startDate },
+      },
+    },
+    {
+      fieldFilter: {
+        field: { fieldPath: "date" },
+        op: "LESS_THAN_OR_EQUAL",
+        value: { stringValue: params.endDate },
+      },
+    },
+  ];
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -112,22 +135,7 @@ export async function fetchDailyProgressRange(params: {
         where: {
           compositeFilter: {
             op: "AND",
-            filters: [
-              {
-                fieldFilter: {
-                  field: { fieldPath: "date" },
-                  op: "GREATER_THAN_OR_EQUAL",
-                  value: { stringValue: params.startDate },
-                },
-              },
-              {
-                fieldFilter: {
-                  field: { fieldPath: "date" },
-                  op: "LESS_THAN_OR_EQUAL",
-                  value: { stringValue: params.endDate },
-                },
-              },
-            ],
+            filters,
           },
         },
       },
@@ -168,11 +176,6 @@ export async function fetchDailyProgressRange(params: {
       displayName: fields.displayName?.stringValue ?? "Пользователь",
     }));
 
-  // Фильтруем по userId на клиенте
-  const filtered = params.userId
-    ? allRecords.filter((r) => r.userId === params.userId)
-    : allRecords;
-
-  console.log("📊 Records after filter:", filtered.length);
-  return filtered;
+  console.log("📊 Records count:", allRecords.length);
+  return allRecords;
 }

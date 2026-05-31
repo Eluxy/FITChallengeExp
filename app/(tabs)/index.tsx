@@ -39,7 +39,7 @@ export default function MainPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { isConnected } = useAuth();
-  const { stats, steps, calories, isLoading, error, refresh } =
+  const { stats, steps, calories, isLoading, error, refresh, isOffline } =
     useGoogleFitData();
   const swipeHandlers = useSwipeableTab("index");
 
@@ -82,6 +82,12 @@ export default function MainPage() {
           </Pressable>
         </View>
       </View>
+
+      {isOffline ? (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>Нет подключения к интернету</Text>
+        </View>
+      ) : null}
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -360,6 +366,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.muted,
     textAlign: "center",
+    fontFamily: "Rimma_sans",
+  },
+  offlineBanner: {
+    backgroundColor: "#A4371D",
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  offlineText: {
+    fontSize: 13,
+    color: "#fff",
     fontFamily: "Rimma_sans",
   },
   actionsRow: {

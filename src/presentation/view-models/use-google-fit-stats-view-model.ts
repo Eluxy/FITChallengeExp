@@ -93,7 +93,9 @@ export function useGoogleFitStatsViewModel() {
           endTimeMillis: weekRange.endTimeMillis,
         });
 
-        setSummary(nextSummary);
+        if (nextSummary !== null) {
+          setSummary(nextSummary);
+        }
       } catch {
         setError("Не удалось загрузить шаги и калории из Google Fit");
       } finally {

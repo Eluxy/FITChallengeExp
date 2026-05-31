@@ -2,6 +2,7 @@ import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
 import type { FriendInfo, FriendRequest, UserSearchResult } from "@/src/domain/entities/friend";
 import type { FriendRepository } from "@/src/domain/repositories/friend-repository";
 import { createNotification } from "@/src/services/notifications/create-notification";
+import { getCache, saveCache, FRIENDS_CACHE_KEY } from "@/src/services/storage/cache-service";
 import {
   collection,
   doc,
@@ -241,12 +242,21 @@ export class FirebaseFriendRepository implements FriendRepository {
     const user = auth.currentUser;
     if (!user) return [];
 
-    const friendsRef = doc(collection(getFirebaseDb(), "friends"), user.uid);
-    const friendsSnap = await getDoc(friendsRef);
+    try {
+      const friendsRef = doc(collection(getFirebaseDb(), "friends"), user.uid);
+      const friendsSnap = await getDoc(friendsRef);
 
-    if (!friendsSnap.exists()) return [];
-    const data = friendsSnap.data();
-    return (data.friends ?? []) as FriendInfo[];
+      if (!friendsSnap.exists()) return [];
+      const data = friendsSnap.data();
+      const friends = (data.friends ?? []) as FriendInfo[];
+
+      saveCache(FRIENDS_CACHE_KEY, friends).catch(() => {});
+
+      return friends;
+    } catch {
+      const cached = await getCache<FriendInfo[]>(FRIENDS_CACHE_KEY);
+      return cached ?? [];
+    }
   }
 
   async removeFriend(friendUserId: string): Promise<{ success: boolean; message: string }> {

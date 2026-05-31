@@ -12,6 +12,10 @@ import type { DashboardStats } from "@/src/domain/entities/dashboard";
 import type { UserGoals } from "@/src/domain/entities/user-settings";
 import { DEFAULT_GOALS } from "@/src/domain/entities/user-settings";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  getMetricsCache,
+  saveMetricsCache,
+} from "@/src/services/storage/cache-service";
 
 const DEFAULT_STATS: DashboardStats = {
   progressPercent: 0,
@@ -94,6 +98,7 @@ export function useGoogleFitData() {
   const [goals, setGoals] = useState<UserGoals>(DEFAULT_GOALS);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
 
   const goalsRef = useRef(goals);
   goalsRef.current = goals;
@@ -101,41 +106,82 @@ export function useGoogleFitData() {
   const progressUserId = userInfo?.email?.replace(/[@.]/g, "_") ?? "guest";
   const displayName = userInfo?.name ?? "Гость";
 
+  const applySummary = useCallback(
+    (summary: { steps: number; calories: number; distanceMeters?: number | undefined }) => {
+      setSteps(summary.steps);
+      setCalories(summary.calories);
+      setDistance(summary.distanceMeters ?? undefined);
+      setStats(
+        computeStats(summary.steps, summary.calories, goalsRef.current),
+      );
+    },
+    [],
+  );
+
   const fetchAndSave = useCallback(async () => {
-    if (!accessToken) return;
+    if (!accessToken) return null;
 
     const range = getDayRange();
     const docId = `${progressUserId}_${range.dateIso}`;
+
+    const cached = await getMetricsCache();
+    const hasValidCache = cached !== null && cached.dateIso === range.dateIso && cached.steps > 0;
+
     const summary = await fetchGoogleFitSummary({
       accessToken,
       startTimeMillis: range.startTimeMillis,
       endTimeMillis: range.endTimeMillis,
-    }).catch(() => ({ steps: 0, calories: 0, distanceMeters: undefined }));
+    }).catch(() => null);
 
-    setSteps(summary.steps);
-    setCalories(summary.calories);
-    setDistance(summary.distanceMeters);
-    setStats(
-      computeStats(summary.steps, summary.calories, goalsRef.current),
-    );
+    if (summary !== null) {
+      setIsOffline(false);
+      setError(null);
+      applySummary(summary);
 
-    const s = computeStats(summary.steps, summary.calories, goalsRef.current);
-    await upsertDailyProgress({
-      documentId: docId,
-      userId: progressUserId,
-      displayName,
-      date: range.dateIso,
-      steps: summary.steps,
-      calories: summary.calories,
-      progressPercent: s.progressPercent,
-    }).catch(() => {});
+      if (summary.steps > 0) {
+        const s = computeStats(summary.steps, summary.calories, goalsRef.current);
+        await upsertDailyProgress({
+          documentId: docId,
+          userId: progressUserId,
+          displayName,
+          date: range.dateIso,
+          steps: summary.steps,
+          calories: summary.calories,
+          progressPercent: s.progressPercent,
+        }).catch(() => {});
+      }
 
-    syncChallengeProgress(
-      summary.steps,
-      summary.calories,
-      summary.distanceMeters,
-    );
-  }, [accessToken, progressUserId, displayName]);
+      // Only update local cache if we have real data
+      if (summary.steps > 0) {
+        await saveMetricsCache(
+          summary.steps,
+          summary.calories,
+          summary.distanceMeters,
+          range.dateIso,
+        );
+      }
+
+      syncChallengeProgress(
+        summary.steps,
+        summary.calories,
+        summary.distanceMeters,
+      );
+
+      return summary;
+    }
+
+    if (hasValidCache) {
+      applySummary({ ...cached, distanceMeters: cached.distance });
+      setIsOffline(true);
+      setError("Нет подключения к интернету. Показаны сохранённые данные.");
+    } else {
+      setError("Не удалось загрузить данные из Google Fit");
+    }
+
+    setIsLoading(false);
+
+    return null;
+  }, [accessToken, progressUserId, displayName, applySummary]);
 
   // Load user goals once
   useEffect(() => {
@@ -157,7 +203,7 @@ export function useGoogleFitData() {
     loadUserGoals();
   }, [isConnected]);
 
-  // Initial load: show cached Firebase data immediately, then fetch from API
+  // Initial load: show cached data immediately, then fetch from API
   useEffect(() => {
     if (!isConnected || !accessToken) return;
     let cancelled = false;
@@ -166,13 +212,12 @@ export function useGoogleFitData() {
       setIsLoading(true);
       setError(null);
 
-      // Show cached data from Firebase immediately
       const range = getDayRange();
-      const docId = `${progressUserId}_${range.dateIso}`;
-      const cached = await fetchDailyProgress(docId).catch(() => null);
-      if (!cancelled && cached !== null) {
-        setSteps(cached);
-        setStats(computeStats(cached, calories, goalsRef.current));
+
+      // Show cached data from AsyncStorage immediately
+      const cache = await getMetricsCache();
+      if (!cancelled && cache !== null && cache.dateIso === range.dateIso) {
+        applySummary({ ...cache, distanceMeters: cache.distance });
       }
 
       // Then fetch fresh data from API
@@ -183,9 +228,9 @@ export function useGoogleFitData() {
     initialLoad();
 
     return () => { cancelled = true; };
-  }, [isConnected, accessToken, progressUserId, displayName, fetchAndSave]);
+  }, [isConnected, accessToken, progressUserId, displayName, fetchAndSave, applySummary]);
 
-  // Periodic refresh every 30 seconds
+  // Periodic refresh
   useEffect(() => {
     if (!isConnected || !accessToken) return;
     let cancelled = false;
@@ -226,5 +271,6 @@ export function useGoogleFitData() {
     isLoading,
     error,
     refresh,
+    isOffline,
   };
 }

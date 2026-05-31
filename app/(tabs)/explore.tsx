@@ -27,15 +27,9 @@ const COLORS = {
 
 export default function StatisticsPage() {
   const insets = useSafeAreaInsets();
-  const { userInfo, isConnected } = useAuth();
-  const {
-    period,
-    setPeriod,
-    stats,
-    isLoading,
-    error,
-    refresh,
-  } = useStatisticsViewModel(userInfo?.email, isConnected);
+  const { userInfo, isConnected, accessToken } = useAuth();
+  const { period, setPeriod, stats, isLoading, error, refresh } =
+    useStatisticsViewModel(userInfo?.email, isConnected, accessToken);
   const swipeHandlers = useSwipeableTab("explore");
 
   return (
@@ -92,7 +86,6 @@ export default function StatisticsPage() {
             </Text>
             <Text style={styles.metricLabel}>Всего шагов</Text>
           </View>
-          <Text style={styles.metricDelta}>{isLoading ? "..." : "LIVE"}</Text>
         </View>
 
         <View style={styles.metricRow}>
@@ -103,7 +96,6 @@ export default function StatisticsPage() {
             </Text>
             <Text style={styles.metricLabel}>Сожжено ккал</Text>
           </View>
-          <Text style={styles.metricDelta}>FIRE</Text>
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
