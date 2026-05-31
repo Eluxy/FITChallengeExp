@@ -1,29 +1,61 @@
 import type { Challenge, ChallengeType } from "@/src/domain/entities/challenge";
 import type { ChallengeRepository } from "@/src/domain/repositories/challenge-repository";
-import { useFocusEffect } from "@react-navigation/native";
-import { useCallback, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type ChallengesTab = "active" | "daily" | "completed";
 
 export function useChallengesViewModel(
   challengeRepository: ChallengeRepository,
   userId: string | null | undefined,
+  isConnected: boolean,
 ) {
   const [activeChallenges, setActiveChallenges] = useState<Challenge[]>([]);
   const [dailyChallenges, setDailyChallenges] = useState<Challenge[]>([]);
   const [completedChallenges, setCompletedChallenges] = useState<Challenge[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const mountedRef = useRef(true);
 
-  const loadChallenges = useCallback(async () => {
+  const loadChallenges = async () => {
     if (!userId) return;
     setIsLoading(true);
-    try {
-      await challengeRepository.checkAndCompleteExpiredChallenges();
-      const [allChallenges, daily, completed] = await Promise.all([
-        challengeRepository.getUserChallenges(userId),
-        challengeRepository.getSystemChallenges(),
-        challengeRepository.getCompletedChallenges(userId),
-      ]);
+
+    if (isConnected) {
+      try {
+        await challengeRepository.checkAndCompleteExpiredChallenges();
+      } catch {
+        // Non-critical, continue
+      }
+    }
+
+    let allChallenges: Challenge[] = [];
+    let daily: Challenge[] = [];
+    let completed: Challenge[] = [];
+
+    const [allResult, dailyResult, completedResult] = await Promise.allSettled([
+      challengeRepository.getUserChallenges(userId),
+      challengeRepository.getSystemChallenges(),
+      challengeRepository.getCompletedChallenges(userId),
+    ]);
+
+    if (allResult.status === "fulfilled") {
+      allChallenges = allResult.value;
+    } else {
+      console.log("Error loading user challenges:", allResult.reason);
+    }
+
+    if (dailyResult.status === "fulfilled") {
+      daily = dailyResult.value;
+    } else {
+      console.log("Error loading system challenges:", dailyResult.reason);
+    }
+
+    if (completedResult.status === "fulfilled") {
+      completed = completedResult.value;
+    } else {
+      console.log("Error loading completed challenges:", completedResult.reason);
+    }
+
+    if (mountedRef.current) {
       setActiveChallenges(
         allChallenges.filter(
           (c) => c.status === "active" || c.status === "pending",
@@ -31,49 +63,47 @@ export function useChallengesViewModel(
       );
       setDailyChallenges(daily);
       setCompletedChallenges(completed);
-    } catch (err) {
-      console.log("Error loading challenges:", err);
-    } finally {
       setIsLoading(false);
     }
-  }, [userId, challengeRepository]);
+  };
 
-  useFocusEffect(
-    useCallback(() => {
-      loadChallenges();
-    }, [loadChallenges]),
-  );
+  useEffect(() => {
+    loadChallenges();
+  }, [userId, challengeRepository, isConnected]);
 
-  const createDailyChallenge = useCallback(
-    async (type: ChallengeType, targetValue: number) => {
-      if (!userId) throw new Error("Не авторизован");
-      const startDate = new Date();
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 1);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
-      await challengeRepository.createChallenge({
-        title: `Ежедневно: ${type}`,
-        description: "",
-        type,
-        targetValue,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        isSystem: true,
-      });
+  const createDailyChallenge = async (
+    type: ChallengeType,
+    targetValue: number,
+  ) => {
+    if (!userId) throw new Error("Не авторизован");
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 1);
 
-      await loadChallenges();
-    },
-    [userId, challengeRepository, loadChallenges],
-  );
+    await challengeRepository.createChallenge({
+      title: `Ежедневно: ${type}`,
+      description: "",
+      type,
+      targetValue,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      isSystem: true,
+    });
 
-  const deleteChallenge = useCallback(
-    async (challengeId: string) => {
-      await challengeRepository.deleteChallenge(challengeId);
-      await loadChallenges();
-    },
-    [challengeRepository, loadChallenges],
-  );
+    await loadChallenges();
+  };
+
+  const deleteChallenge = async (challengeId: string) => {
+    await challengeRepository.deleteChallenge(challengeId);
+    await loadChallenges();
+  };
 
   return {
     activeChallenges,

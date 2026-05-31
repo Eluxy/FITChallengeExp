@@ -66,7 +66,7 @@ export default function ChallengesPage() {
     refresh,
     createDailyChallenge,
     deleteChallenge,
-  } = useChallengesViewModel(challengeRepository, currentUserId);
+  } = useChallengesViewModel(challengeRepository, currentUserId, isConnected);
 
   const [showDailyForm, setShowDailyForm] = useState(false);
   const [dailyType, setDailyType] = useState<ChallengeType>("steps");
