@@ -10,6 +10,7 @@ import { useEffect } from "react";
 import { Appearance, View } from "react-native";
 import "react-native-reanimated";
 
+import { AppThemeProvider } from "@/src/context/theme-context";
 import { AuthProvider, useAuth } from "@/src/context/auth-context";
 import { ServiceProvider, useServices } from "@/src/context/service-provider";
 import { useThemeInitializer } from "@/src/presentation/view-models/use-theme-initializer";
@@ -19,6 +20,7 @@ import { InAppToast } from "@/components/in-app-toast";
 import {
   setupNotifications,
   scheduleDailyReminder,
+  handleNotificationResponse,
 } from "@/src/services/notifications/notification-service";
 
 export const unstable_settings = {
@@ -60,19 +62,37 @@ function ToastManager() {
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const themeOverride = useThemeInitializer();
+  const router = useRouter();
 
   useEffect(() => {
     setupNotifications();
     scheduleDailyReminder(20, 0);
+
+    const unsubNotif = handleNotificationResponse((data) => {
+      if (!data) return;
+      if (data.challengeId) {
+        router.push(`/challenge-detail_page?id=${data.challengeId}`);
+      } else if (data.achievementId) {
+        router.push("/achievements_page");
+      } else {
+        router.push("/notifications_page");
+      }
+    });
+
+    return () => {
+      unsubNotif();
+    };
   }, []);
 
   const effectiveTheme = themeOverride ?? Appearance.getColorScheme();
 
   return (
     <ThemeProvider value={effectiveTheme === "dark" ? DarkTheme : DefaultTheme}>
-      {children}
-      <ToastManager />
-      <StatusBar style="auto" />
+      <AppThemeProvider>
+        {children}
+        <ToastManager />
+        <StatusBar style="auto" />
+      </AppThemeProvider>
     </ThemeProvider>
   );
 }

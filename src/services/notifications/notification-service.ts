@@ -5,7 +5,9 @@ import {
   setNotificationChannelAsync,
   getPermissionsAsync,
   requestPermissionsAsync,
+  setNotificationHandler,
   addNotificationResponseReceivedListener,
+  addPushTokenListener,
   scheduleNotificationAsync,
   NotificationTriggerInput,
   SchedulableTriggerInputTypes,
@@ -13,6 +15,16 @@ import {
 } from "expo-notifications";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { Platform } from "react-native";
+
+setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export async function setupNotifications() {
   if (Platform.OS === "android") {
@@ -37,7 +49,26 @@ export async function setupNotifications() {
     if (status !== "granted") return null;
   }
 
-  return registerForPushNotifications();
+  const token = await registerForPushNotifications();
+
+  addPushTokenListener(async (tokenData) => {
+    const auth = getFirebaseAuth();
+    const user = auth.currentUser;
+    if (user) {
+      const db = getFirebaseDb();
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          pushToken: tokenData.data,
+          pushTokenPlatform: Platform.OS,
+          pushTokenUpdatedAt: new Date().toISOString(),
+        },
+        { merge: true },
+      );
+    }
+  });
+
+  return token;
 }
 
 async function registerForPushNotifications() {

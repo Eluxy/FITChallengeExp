@@ -1,3 +1,4 @@
+import { useAppTheme, type ThemeColors } from "@/src/context/theme-context";
 import { useAuth } from "@/src/context/auth-context";
 import { useLeaderboardViewModel } from "@/src/presentation/view-models/use-leaderboard-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -11,24 +12,11 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const COLORS = {
-  bg: "#F8EDAD",
-  cream: "#F8EDAD",
-  card: "#F8EDAD",
-  text: "#ED7C30",
-  accent: "#ED7C30",
-  muted: "#B35A22",
-  green: "#48B75A",
-  gold: "#F5C518",
-  silver: "#A8A9AD",
-  bronze: "#CD7F32",
-} as const;
-
-function getMedalColor(index: number) {
-  if (index === 0) return COLORS.gold;
-  if (index === 1) return COLORS.silver;
-  if (index === 2) return COLORS.bronze;
-  return COLORS.muted;
+function getMedalColor(index: number, colors: ThemeColors) {
+  if (index === 0) return colors.gold;
+  if (index === 1) return colors.silver;
+  if (index === 2) return colors.bronze;
+  return colors.muted;
 }
 
 function getMedalIcon(index: number) {
@@ -38,94 +26,103 @@ function getMedalIcon(index: number) {
   return "account";
 }
 
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.bg },
+    content: { paddingHorizontal: 18, paddingBottom: 24, gap: 14 },
+    header: {
+      backgroundColor: colors.cream, borderRadius: 18,
+      flexDirection: "row", alignItems: "center",
+      justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 14,
+    },
+    headerTitle: { fontSize: 34, color: colors.text, fontFamily: "Rimma_sans" },
+    card: {
+      backgroundColor: colors.card, borderRadius: 24, padding: 16,
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.12, shadowRadius: 12, elevation: 7,
+    },
+    cardTitle: { fontSize: 18, color: colors.muted, fontFamily: "Rimma_sans", marginBottom: 8 },
+    emptyState: { alignItems: "center", paddingVertical: 32 },
+    emptyText: { marginTop: 12, fontSize: 16, color: colors.muted, textAlign: "center", fontFamily: "Rimma_sans" },
+    row: {
+      flexDirection: "row", alignItems: "center", paddingVertical: 10,
+      borderBottomWidth: 1, borderBottomColor: colors.divider,
+    },
+    myRow: { backgroundColor: colors.cream, borderRadius: 12, paddingHorizontal: 8 },
+    medal: { marginRight: 10 },
+    rowInfo: { flex: 1 },
+    rowName: { fontSize: 20, color: colors.text, fontFamily: "Rimma_sans" },
+    rowStats: { fontSize: 14, color: colors.muted, fontFamily: "Rimma_sans" },
+    rowRank: { fontSize: 22, color: colors.accent, fontFamily: "Rimma_sans" },
+  });
+}
+
 export default function LeaderboardPage() {
   const insets = useSafeAreaInsets();
-  const { isConnected, userInfo } = useAuth();
+  const { colors } = useAppTheme();
+  const { isConnected, firebaseUser } = useAuth();
   const { leaders, isLoading, error, myUserId, refresh } =
-    useLeaderboardViewModel(
-    userInfo?.email,
-    isConnected,
-  );
+    useLeaderboardViewModel(firebaseUser, isConnected);
+  const s = createStyles(colors);
 
   return (
     <ScrollView
-      style={[styles.root, { paddingTop: insets.top + 8 }]}
-      contentContainerStyle={styles.content}
+      style={[s.root, { paddingTop: insets.top + 8 }]}
+      contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={isLoading} onRefresh={refresh} />
-      }
+      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refresh} />}
     >
-      <View style={styles.header}>
-        <MaterialCommunityIcons
-          name="trophy-outline"
-          size={26}
-          color={COLORS.text}
-        />
-        <Text style={styles.headerTitle}>ЛИДЕРБОРД</Text>
-
+      <View style={s.header}>
+        <MaterialCommunityIcons name="trophy-outline" size={26} color={colors.text} />
+        <Text style={s.headerTitle}>ЛИДЕРБОРД</Text>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>СЕГОДНЯ</Text>
+      <View style={s.card}>
+        <Text style={s.cardTitle}>СЕГОДНЯ</Text>
 
         {!isConnected ? (
-          <View style={styles.emptyState}>
-            <MaterialCommunityIcons
-              name="account-off-outline"
-              size={48}
-              color={COLORS.muted}
-            />
-            <Text style={styles.emptyText}>
-              Войдите в аккаунт для просмотра лидерборда
-            </Text>
+          <View style={s.emptyState}>
+            <MaterialCommunityIcons name="account-off-outline" size={48} color={colors.muted} />
+            <Text style={s.emptyText}>Войдите в аккаунт для просмотра лидерборда</Text>
           </View>
         ) : isLoading ? (
-          <View style={styles.emptyState}>
-            <ActivityIndicator size="large" color={COLORS.accent} />
-            <Text style={styles.emptyText}>Загрузка...</Text>
+          <View style={s.emptyState}>
+            <ActivityIndicator size="large" color={colors.accent} />
+            <Text style={s.emptyText}>Загрузка...</Text>
           </View>
         ) : error ? (
-          <View style={styles.emptyState}>
-            <MaterialCommunityIcons
-              name="alert-circle-outline"
-              size={48}
-              color={COLORS.muted}
-            />
-            <Text style={styles.emptyText}>{error}</Text>
+          <View style={s.emptyState}>
+            <MaterialCommunityIcons name="alert-circle-outline" size={48} color={colors.muted} />
+            <Text style={s.emptyText}>{error}</Text>
           </View>
         ) : leaders.length === 0 ? (
-          <View style={styles.emptyState}>
-            <MaterialCommunityIcons
-              name="trophy-outline"
-              size={48}
-              color={COLORS.muted}
-            />
-            <Text style={styles.emptyText}>Пока нет данных за сегодня</Text>
+          <View style={s.emptyState}>
+            <MaterialCommunityIcons name="trophy-outline" size={48} color={colors.muted} />
+            <Text style={s.emptyText}>Пока нет данных за сегодня</Text>
           </View>
         ) : (
           leaders.map((entry, index) => (
             <View
-              key={entry.userId || index}
-              style={[styles.row, entry.userId === myUserId && styles.myRow]}
+              key={entry.uid || entry.userId || index}
+              style={[s.row, entry.uid === myUserId && s.myRow]}
             >
               <MaterialCommunityIcons
                 name={getMedalIcon(index) as any}
                 size={28}
-                color={getMedalColor(index)}
-                style={styles.medal}
+                color={getMedalColor(index, colors)}
+                style={s.medal}
               />
-              <View style={styles.rowInfo}>
-                <Text style={styles.rowName}>
+              <View style={s.rowInfo}>
+                <Text style={s.rowName}>
                   {entry.displayName}
-                  {entry.userId === myUserId ? " (Вы)" : ""}
+                  {entry.uid === myUserId ? " (Вы)" : ""}
                 </Text>
-                <Text style={styles.rowStats}>
+                <Text style={s.rowStats}>
                   {entry.steps.toLocaleString("ru-RU")} шагов •{" "}
                   {entry.calories.toLocaleString("ru-RU")} ккал
                 </Text>
               </View>
-              <Text style={styles.rowRank}>#{index + 1}</Text>
+              <Text style={s.rowRank}>#{index + 1}</Text>
             </View>
           ))
         )}
@@ -133,59 +130,3 @@ export default function LeaderboardPage() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
-  content: { paddingHorizontal: 18, paddingBottom: 24, gap: 14 },
-  header: {
-    backgroundColor: COLORS.cream,
-    borderRadius: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  headerTitle: { fontSize: 34, color: COLORS.text, fontFamily: "Rimma_sans" },
-  card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 24,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 7,
-  },
-  cardTitle: {
-    fontSize: 18,
-    color: COLORS.muted,
-    fontFamily: "Rimma_sans",
-    marginBottom: 8,
-  },
-  emptyState: { alignItems: "center", paddingVertical: 32 },
-  emptyText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: COLORS.muted,
-    textAlign: "center",
-    fontFamily: "Rimma_sans",
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EBDCC2",
-  },
-  myRow: {
-    backgroundColor: COLORS.cream,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-  },
-  medal: { marginRight: 10 },
-  rowInfo: { flex: 1 },
-  rowName: { fontSize: 20, color: COLORS.text, fontFamily: "Rimma_sans" },
-  rowStats: { fontSize: 14, color: COLORS.muted, fontFamily: "Rimma_sans" },
-  rowRank: { fontSize: 22, color: COLORS.accent, fontFamily: "Rimma_sans" },
-});

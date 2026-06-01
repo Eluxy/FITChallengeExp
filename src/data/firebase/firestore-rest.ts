@@ -3,6 +3,7 @@ type DailyProgressRecord = {
   steps: number;
   calories: number;
   userId?: string;
+  uid?: string;
   displayName?: string;
 };
 
@@ -31,6 +32,7 @@ function parseInteger(value?: string): number {
 export async function upsertDailyProgress(params: {
   documentId: string;
   userId: string;
+  uid: string;
   displayName: string;
   date: string;
   steps: number;
@@ -45,6 +47,7 @@ export async function upsertDailyProgress(params: {
   const body = {
     fields: {
       userId: { stringValue: params.userId },
+      uid: { stringValue: params.uid },
       displayName: { stringValue: params.displayName },
       date: { stringValue: params.date },
       steps: { integerValue: String(params.steps) },
@@ -73,6 +76,89 @@ export async function upsertDailyProgress(params: {
   }
   
   console.log("✅ Saved to Firebase successfully");
+}
+
+export async function fetchDailyProgressByUids(params: {
+  uids: string[];
+  startDate: string;
+  endDate: string;
+}): Promise<DailyProgressRecord[]> {
+  if (params.uids.length === 0) return [];
+
+  const { documentsUrl, apiKey } = getFirestoreBaseUrl();
+  const url = `${documentsUrl}:runQuery?key=${apiKey}`;
+
+  const filters: any[] = [
+    {
+      fieldFilter: {
+        field: { fieldPath: "uid" },
+        op: "IN",
+        value: {
+          arrayValue: {
+            values: params.uids.map((uid) => ({ stringValue: uid })),
+          },
+        },
+      },
+    },
+    {
+      fieldFilter: {
+        field: { fieldPath: "date" },
+        op: "GREATER_THAN_OR_EQUAL",
+        value: { stringValue: params.startDate },
+      },
+    },
+    {
+      fieldFilter: {
+        field: { fieldPath: "date" },
+        op: "LESS_THAN_OR_EQUAL",
+        value: { stringValue: params.endDate },
+      },
+    },
+  ];
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: "daily_progress" }],
+        where: {
+          compositeFilter: { op: "AND", filters },
+        },
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.log("❌ Firestore read error:", errorText);
+    throw new Error("Failed to read daily progress by uids");
+  }
+
+  const json = (await response.json()) as {
+    document?: {
+      fields?: {
+        date?: { stringValue?: string };
+        steps?: { integerValue?: string };
+        calories?: { integerValue?: string };
+        userId?: { stringValue?: string };
+        displayName?: { stringValue?: string };
+        uid?: { stringValue?: string };
+      };
+    };
+  }[];
+
+  return json
+    .map((entry) => entry.document?.fields)
+    .filter((fields): fields is NonNullable<typeof fields> => Boolean(fields))
+    .map((fields) => ({
+      date: fields.date?.stringValue ?? "",
+      steps: parseInteger(fields.steps?.integerValue),
+      calories: parseInteger(fields.calories?.integerValue),
+      userId: fields.userId?.stringValue ?? "",
+      uid: fields.uid?.stringValue ?? "",
+      displayName: fields.displayName?.stringValue ?? "Пользователь",
+    }));
 }
 
 export async function fetchDailyProgress(documentId: string): Promise<number | null> {

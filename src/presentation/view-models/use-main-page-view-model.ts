@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { upsertDailyProgress } from "@/src/data/firebase/firestore-rest";
 import { fetchGoogleFitSummary } from "@/src/data/google-fit/fetch-google-fit-summary";
+import { getFirebaseAuth } from "@/src/config/firebase";
 import type { DashboardStats } from "@/src/domain/entities/dashboard";
 
 const DEFAULT_STATS: DashboardStats = {
@@ -111,9 +112,11 @@ export function useMainPageViewModel() {
       const { dateIso } = getDayRange();
       const documentId = `${progressUserId}_${dateIso}`;
 
+      const firebaseUid = getFirebaseAuth().currentUser?.uid ?? progressUserId;
       await upsertDailyProgress({
         documentId,
         userId: progressUserId,
+        uid: firebaseUid,
         displayName: displayName,
         date: dateIso,
         steps: nextSteps,

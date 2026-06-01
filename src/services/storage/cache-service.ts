@@ -5,6 +5,7 @@ const METRICS_CACHE_KEY = "@fitapp_metrics_cache";
 const CHALLENGES_CACHE_KEY = "@fitapp_challenges_cache";
 const SYSTEM_CHALLENGES_CACHE_KEY = "@fitapp_system_challenges_cache";
 const FRIENDS_CACHE_KEY = "@fitapp_friends_cache";
+const LEADERBOARD_CACHE_KEY = "@fitapp_leaderboard_cache";
 const STATS_CACHE_PREFIX = "@fitapp_stats_cache_";
 
 type MetricsCache = {
@@ -15,11 +16,15 @@ type MetricsCache = {
   timestamp: number;
 };
 
-type StatsCacheData = {
+export type StatsCacheData = {
   totalSteps: number;
   totalCalories: number;
+  totalDistance: number;
+  avgSteps: number;
+  avgCalories: number;
   bestDayDate: string;
   bestDaySteps: number;
+  dailyBreakdown: { date: string; steps: number; calories: number }[];
   dateIso: string;
 };
 
@@ -97,4 +102,5 @@ export {
   CHALLENGES_CACHE_KEY,
   SYSTEM_CHALLENGES_CACHE_KEY,
   FRIENDS_CACHE_KEY,
+  LEADERBOARD_CACHE_KEY,
 };
