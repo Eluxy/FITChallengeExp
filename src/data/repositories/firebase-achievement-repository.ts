@@ -1,12 +1,11 @@
 import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
 import type { UserAchievement } from "@/src/domain/entities/achievement";
 import type { AchievementRepository } from "@/src/domain/repositories/achievement-repository";
-import { ACHIEVEMENTS } from "@/src/services/gamification/achievements";
+import { ACHIEVEMENTS } from "@/src/domain/services/achievement-service";
 import { createNotification } from "@/src/services/notifications/create-notification";
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
   query,
   where,

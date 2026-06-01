@@ -1,12 +1,21 @@
-import { fetchDailyProgressRange } from "@/src/data/firebase/firestore-rest";
+import { fetchDailyProgressByUids } from "@/src/data/firebase/firestore-rest";
+import { FirebaseFriendRepository } from "@/src/data/repositories/firebase-friend-repository";
+import { getFirebaseAuth } from "@/src/config/firebase";
+import { getCache, saveCache, LEADERBOARD_CACHE_KEY } from "@/src/services/storage/cache-service";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
 
 export type LeaderEntry = {
   userId: string;
+  uid: string;
   displayName: string;
   steps: number;
   calories: number;
+};
+
+type LeaderboardCache = {
+  entries: LeaderEntry[];
+  timestamp: number;
 };
 
 function getTodayRange() {
@@ -28,17 +37,15 @@ function getTodayRange() {
 }
 
 export function useLeaderboardViewModel(
-  userId: string | undefined,
+  firebaseUser: any,
   isConnected: boolean,
 ) {
   const [leaders, setLeaders] = useState<LeaderEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const myUserId = userId?.replace(/[@.]/g, "_") ?? "";
-
   const loadLeaderboard = useCallback(async () => {
-    if (!isConnected) {
+    if (!firebaseUser) {
       setError("Войдите в аккаунт для просмотра лидерборда");
       return;
     }
@@ -47,28 +54,92 @@ export function useLeaderboardViewModel(
     setError(null);
 
     try {
+      const auth = getFirebaseAuth();
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        setError("Войдите в аккаунт для просмотра лидерборда");
+        return;
+      }
+
+      const friendRepo = new FirebaseFriendRepository();
+      const friends = await friendRepo.getFriends();
+      const friendUids = friends.map((f) => f.userId).filter((uid): uid is string => Boolean(uid));
+
+      const allUids = [currentUser.uid, ...friendUids.filter((uid) => uid !== currentUser.uid)];
+
+      if (allUids.length === 0) {
+        setLeaders([]);
+        return;
+      }
+
       const { startDate, endDate } = getTodayRange();
-      const rows = await fetchDailyProgressRange({
-        userId: myUserId,
+      const rows = await fetchDailyProgressByUids({
+        uids: allUids,
         startDate,
         endDate,
       });
 
-      const entries: LeaderEntry[] = rows.map((row) => ({
-        userId: (row as any).userId ?? "",
-        displayName: (row as any).displayName ?? "Пользователь",
-        steps: row.steps,
-        calories: row.calories,
-      }));
+      const entryMap = new Map<string, LeaderEntry>();
+      for (const row of rows) {
+        const key = row.uid || row.userId || "";
+        const existing = entryMap.get(key);
+        if (existing) {
+          existing.steps += row.steps;
+          existing.calories += row.calories;
+        } else {
+          entryMap.set(key, {
+            userId: row.userId ?? "",
+            uid: row.uid ?? "",
+            displayName: row.displayName ?? "Пользователь",
+            steps: row.steps,
+            calories: row.calories,
+          });
+        }
+      }
+
+      const entries = Array.from(entryMap.values());
+
+      // Fill in missing friends/users with 0 steps so everyone appears
+      const foundUids = new Set(entryMap.keys());
+      const friendDisplayMap = new Map(
+        friends.map((f) => [f.userId, f.displayName ?? "Пользователь"]),
+      );
+
+      for (const uid of allUids) {
+        if (!foundUids.has(uid)) {
+          entries.push({
+            userId: "",
+            uid,
+            displayName: uid === currentUser.uid
+              ? (currentUser.displayName ?? "Вы")
+              : (friendDisplayMap.get(uid) ?? "Пользователь"),
+            steps: 0,
+            calories: 0,
+          });
+        }
+      }
 
       entries.sort((a, b) => b.steps - a.steps);
+
       setLeaders(entries);
+      setError(null);
+
+      saveCache<LeaderboardCache>(LEADERBOARD_CACHE_KEY, {
+        entries,
+        timestamp: Date.now(),
+      }).catch(() => {});
     } catch {
-      setError("Не удалось загрузить лидерборд");
+      const cached = await getCache<LeaderboardCache>(LEADERBOARD_CACHE_KEY);
+      if (cached && cached.entries.length > 0) {
+        setLeaders(cached.entries);
+        setError("Показаны сохранённые данные");
+      } else {
+        setError("Не удалось загрузить лидерборд");
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [isConnected, myUserId]);
+  }, [firebaseUser]);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,7 +151,7 @@ export function useLeaderboardViewModel(
     leaders,
     isLoading,
     error,
-    myUserId,
+    myUserId: firebaseUser?.uid ?? "",
     refresh: loadLeaderboard,
   };
 }

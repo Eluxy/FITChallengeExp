@@ -1,13 +1,48 @@
 import type { AchievementCheckStats } from "@/src/domain/entities/achievement";
 import { ACHIEVEMENTS } from "@/src/domain/services/achievement-service";
 import { getLevelInfo, getLevelProgress, calculateTotalDailyXp } from "@/src/domain/services/points-system";
-import { useMemo } from "react";
+import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
+import { FirebaseAchievementRepository } from "@/src/data/repositories/firebase-achievement-repository";
+import { doc, getDoc } from "firebase/firestore";
+import { useEffect, useMemo, useState } from "react";
 
 export function useAchievementsViewModel(
   steps: number,
   calories: number,
+  isConnected: boolean,
   distance?: number,
 ) {
+  const [firestoreUnlocked, setFirestoreUnlocked] = useState<Set<string>>(new Set());
+  const [totalXp, setTotalXp] = useState(0);
+
+  const uid = getFirebaseAuth().currentUser?.uid;
+
+  useEffect(() => {
+    if (!uid || !isConnected) return;
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const repo = new FirebaseAchievementRepository();
+        const userAchievements = await repo.getUserAchievements(uid);
+        if (!cancelled) {
+          setFirestoreUnlocked(new Set(userAchievements.map((a) => a.id)));
+        }
+
+        const db = getFirebaseDb();
+        const userSnap = await getDoc(doc(db, "users", uid));
+        if (!cancelled && userSnap.exists()) {
+          setTotalXp(userSnap.data().totalXp ?? 0);
+        }
+      } catch {
+        // keep defaults
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [uid, isConnected]);
+
   const checkStats: AchievementCheckStats = useMemo(() => ({
     totalSteps: steps,
     totalCalories: calories,
@@ -22,15 +57,21 @@ export function useAchievementsViewModel(
   }), [steps, calories, distance]);
 
   const dailyXp = useMemo(() => calculateTotalDailyXp(steps, calories), [steps, calories]);
-  const levelInfo = useMemo(() => getLevelInfo(dailyXp), [dailyXp]);
-  const levelProgress = useMemo(() => getLevelProgress(dailyXp), [dailyXp]);
 
-  const unlockedAchievements = useMemo(
-    () => ACHIEVEMENTS.filter((a) => a.condition(checkStats)),
+  // Use cumulative XP for level calculation (prefer Firestore, fall back to daily)
+  const effectiveXp = totalXp > 0 ? totalXp : dailyXp;
+  const levelInfo = useMemo(() => getLevelInfo(effectiveXp), [effectiveXp]);
+  const levelProgress = useMemo(() => getLevelProgress(effectiveXp), [effectiveXp]);
+
+  // Merge: condition + already unlocked from Firestore
+  const conditionallyUnlocked = useMemo(
+    () => new Set(ACHIEVEMENTS.filter((a) => a.condition(checkStats)).map((a) => a.id)),
     [checkStats],
   );
 
-  const unlockedCount = unlockedAchievements.length;
+  const allUnlocked = new Set([...firestoreUnlocked, ...conditionallyUnlocked]);
+
+  const unlockedCount = allUnlocked.size;
   const totalCount = ACHIEVEMENTS.length;
 
   return {
@@ -39,7 +80,7 @@ export function useAchievementsViewModel(
     levelInfo,
     levelProgress,
     achievements: ACHIEVEMENTS,
-    unlockedAchievements,
+    unlockedSet: allUnlocked,
     unlockedCount,
     totalCount,
   };

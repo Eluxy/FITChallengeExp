@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/theme-context";
 import { Tabs } from "expo-router";
 import React from "react";
 
@@ -5,21 +6,14 @@ import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 
 export default function TabLayout() {
-  const retro = {
-    tabBarActiveTintColor: "#ED7C30",
-    tabBarInactiveTintColor: "#B35A22",
-    tabBarStyle: {
-      backgroundColor: "#F8EDAD",
-      borderTopColor: "#E8D4A8",
-    },
-  };
+  const { colors } = useAppTheme();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: retro.tabBarActiveTintColor,
-        tabBarInactiveTintColor: retro.tabBarInactiveTintColor,
-        tabBarStyle: retro.tabBarStyle,
+        tabBarActiveTintColor: colors.tabActive,
+        tabBarInactiveTintColor: colors.tabInactive,
+        tabBarStyle: { backgroundColor: colors.tabBg, borderTopColor: colors.divider },
         headerShown: false,
         tabBarButton: HapticTab,
       }}

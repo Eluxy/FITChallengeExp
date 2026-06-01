@@ -1,22 +1,36 @@
 import { fetchDailyProgressRange } from "@/src/data/firebase/firestore-rest";
 import { fetchGoogleFitStatsRange } from "@/src/data/google-fit/fetch-google-fit-summary";
-import { getStatsCache, saveStatsCache } from "@/src/services/storage/cache-service";
+import { getStatsCache, saveStatsCache, type StatsCacheData } from "@/src/services/storage/cache-service";
 import { useEffect, useRef, useState } from "react";
 
 export type Period = "day" | "month" | "year";
 
+export type DayStat = {
+  date: string;
+  steps: number;
+  calories: number;
+};
+
 type StatsState = {
   totalSteps: number;
   totalCalories: number;
+  totalDistance: number;
+  avgSteps: number;
+  avgCalories: number;
   bestDayDate: string;
   bestDaySteps: number;
+  dailyBreakdown: DayStat[];
 };
 
 const EMPTY_STATS: StatsState = {
   totalSteps: 0,
   totalCalories: 0,
+  totalDistance: 0,
+  avgSteps: 0,
+  avgCalories: 0,
   bestDayDate: "Нет данных",
   bestDaySteps: 0,
+  dailyBreakdown: [],
 };
 
 function getStartDate(period: Period): Date {
@@ -101,26 +115,33 @@ export function useStatisticsViewModel(
 
         if (loadIdRef.current !== loadId || !mountedRef.current) return;
 
-        if (fitStats !== null && fitStats.days.length > 0) {
+        if (fitStats !== null && fitStats.totalSteps > 0) {
+          const days = fitStats.days ?? [];
+          const dayCount = days.length || 1;
           let bestDaySteps = 0;
           let bestDayDate = "Нет данных";
 
-          for (const day of fitStats.days) {
+          for (const day of days) {
             if (day.steps > bestDaySteps) {
               bestDaySteps = day.steps;
               bestDayDate = formatBestDate(day.date);
             }
           }
 
-          const result = {
+          const result: StatsCacheData = {
             totalSteps: fitStats.totalSteps,
             totalCalories: fitStats.totalCalories,
+            totalDistance: fitStats.distanceMeters ?? 0,
+            avgSteps: Math.round(fitStats.totalSteps / dayCount),
+            avgCalories: Math.round(fitStats.totalCalories / dayCount),
             bestDayDate,
             bestDaySteps,
+            dailyBreakdown: days.map((d) => ({ date: d.date, steps: d.steps, calories: d.calories })),
+            dateIso: formatIsoDate(new Date()),
           };
 
           setStats(result);
-          saveStatsCache(currentPeriod, { ...result, dateIso: formatIsoDate(new Date()) }).catch(() => {});
+          saveStatsCache(currentPeriod, result).catch(() => {});
           return;
         }
       }
@@ -131,8 +152,12 @@ export function useStatisticsViewModel(
         setStats({
           totalSteps: cached.totalSteps,
           totalCalories: cached.totalCalories,
+          totalDistance: cached.totalDistance ?? 0,
+          avgSteps: cached.avgSteps ?? 0,
+          avgCalories: cached.avgCalories ?? 0,
           bestDayDate: cached.bestDayDate,
           bestDaySteps: cached.bestDaySteps,
+          dailyBreakdown: cached.dailyBreakdown ?? [],
         });
         setError("Показаны сохранённые данные");
         return;
@@ -156,6 +181,7 @@ export function useStatisticsViewModel(
       let totalCalories = 0;
       let bestDaySteps = 0;
       let bestDayDate = "Нет данных";
+      const days: { date: string; steps: number; calories: number }[] = [];
 
       rows.forEach((data) => {
         totalSteps += data.steps;
@@ -164,11 +190,23 @@ export function useStatisticsViewModel(
           bestDaySteps = data.steps;
           bestDayDate = formatBestDate(data.date);
         }
+        if (data.date) days.push({ date: data.date, steps: data.steps, calories: data.calories });
       });
 
-      const result = { totalSteps, totalCalories, bestDayDate, bestDaySteps };
+      const dayCount = days.length || 1;
+      const result: StatsCacheData = {
+        totalSteps,
+        totalCalories,
+        totalDistance: 0,
+        avgSteps: Math.round(totalSteps / dayCount),
+        avgCalories: Math.round(totalCalories / dayCount),
+        bestDayDate,
+        bestDaySteps,
+        dailyBreakdown: days,
+        dateIso: formatIsoDate(new Date()),
+      };
       setStats(result);
-      saveStatsCache(currentPeriod, { ...result, dateIso: formatIsoDate(new Date()) }).catch(() => {});
+      saveStatsCache(currentPeriod, result).catch(() => {});
     } catch {
       if (loadIdRef.current === loadId && mountedRef.current) {
         const cached = await getStatsCache(currentPeriod);
@@ -176,8 +214,12 @@ export function useStatisticsViewModel(
           setStats({
             totalSteps: cached.totalSteps,
             totalCalories: cached.totalCalories,
+            totalDistance: cached.totalDistance ?? 0,
+            avgSteps: cached.avgSteps ?? 0,
+            avgCalories: cached.avgCalories ?? 0,
             bestDayDate: cached.bestDayDate,
             bestDaySteps: cached.bestDaySteps,
+            dailyBreakdown: cached.dailyBreakdown ?? [],
           });
           setError("Показаны сохранённые данные");
         } else {

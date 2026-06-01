@@ -1,53 +1,65 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
-import { Platform } from 'react-native';
-
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
-export const Colors = {
-  light: {
-    text: '#000',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
-  dark: {
-    text: '#fff',
-    background: '#000',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
+export type ThemeColors = {
+  bg: string;
+  cream: string;
+  card: string;
+  text: string;
+  accent: string;
+  muted: string;
+  green: string;
+  divider: string;
+  error: string;
+  gold: string;
+  silver: string;
+  bronze: string;
+  chartBar: string;
+  shadow: string;
+  tabBg: string;
+  tabActive: string;
+  tabInactive: string;
+  overlay: string;
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
+export type ThemeMode = "light" | "dark";
+
+export const AppTheme: Record<ThemeMode, ThemeColors> = {
+  light: {
+    bg: "#F8EDAD",
+    cream: "#F8EDAD",
+    card: "#F8EDAD",
+    text: "#ED7C30",
+    accent: "#ED7C30",
+    muted: "#B35A22",
+    green: "#48B75A",
+    divider: "#E8D699",
+    error: "#A4371D",
+    gold: "#F5C518",
+    silver: "#A8A9AD",
+    bronze: "#CD7F32",
+    chartBar: "#ED7C30",
+    shadow: "#000",
+    tabBg: "#F8EDAD",
+    tabActive: "#ED7C30",
+    tabInactive: "#B35A22",
+    overlay: "rgba(0,0,0,0.05)",
   },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
+  dark: {
+    bg: "#1C1B18",
+    cream: "#2D2A24",
+    card: "#2D2A24",
+    text: "#F8EDAD",
+    accent: "#F8EDAD",
+    muted: "#BFA57B",
+    green: "#5CD06E",
+    divider: "#3D3A32",
+    error: "#E85530",
+    gold: "#F5C518",
+    silver: "#A8A9AD",
+    bronze: "#CD7F32",
+    chartBar: "#F8EDAD",
+    shadow: "#000",
+    tabBg: "#2D2A24",
+    tabActive: "#F8EDAD",
+    tabInactive: "#8A7D60",
+    overlay: "rgba(255,255,255,0.08)",
   },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
+};

@@ -1,13 +1,17 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/src/context/auth-context";
+import { useServices } from "@/src/context/service-provider";
 import {
   fetchDailyProgress,
   upsertDailyProgress,
 } from "@/src/data/firebase/firestore-rest";
 import { fetchGoogleFitSummary } from "@/src/data/google-fit/fetch-google-fit-summary";
 import { getFirebaseAuth, getFirebaseDb } from "@/src/config/firebase";
+import { GetAchievementsUseCase } from "@/src/domain/use-cases/get-achievements-use-case";
+import { calculateTotalDailyXp } from "@/src/domain/services/points-system";
+import { FirebaseAchievementRepository } from "@/src/data/repositories/firebase-achievement-repository";
 import { FirebaseChallengeRepository } from "@/src/data/repositories/firebase-challenge-repository";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import type { DashboardStats } from "@/src/domain/entities/dashboard";
 import type { UserGoals } from "@/src/domain/entities/user-settings";
 import { DEFAULT_GOALS } from "@/src/domain/entities/user-settings";
@@ -89,8 +93,50 @@ async function syncChallengeProgress(
   }
 }
 
+async function syncAchievementsAndXp(
+  currentSteps: number,
+  currentCalories: number,
+  currentDistance: number | undefined,
+) {
+  try {
+    const uid = getFirebaseAuth().currentUser?.uid;
+    if (!uid) return;
+
+    const repo = new FirebaseAchievementRepository();
+    const useCase = new GetAchievementsUseCase(repo);
+
+    const newlyEarned = await useCase.checkAndUnlock(uid, {
+      totalSteps: currentSteps,
+      totalCalories: currentCalories,
+      totalDistanceMeters: currentDistance ?? 0,
+      currentDaySteps: currentSteps,
+      currentDayCalories: currentCalories,
+      streakDays: 0,
+      challengesWon: 0,
+      challengesParticipated: 0,
+      friendsCount: 0,
+      workoutsLogged: 0,
+    });
+
+    if (newlyEarned.length > 0) {
+      console.log(`🏆 New achievements unlocked: ${newlyEarned.map((a) => a.title).join(", ")}`);
+    }
+
+    // Persist cumulative XP to user document
+    const db = getFirebaseDb();
+    const userDocRef = doc(db, "users", uid);
+    const userSnap = await getDoc(userDocRef);
+    const existingTotalXp = userSnap.exists() ? (userSnap.data().totalXp ?? 0) : 0;
+    const dailyXp = calculateTotalDailyXp(currentSteps, currentCalories);
+    const totalXp = existingTotalXp + dailyXp;
+    await setDoc(userDocRef, { totalXp }, { merge: true });
+  } catch (err) {
+    console.log("Error syncing achievements:", err);
+  }
+}
+
 export function useGoogleFitData() {
-  const { isConnected, accessToken, userInfo } = useAuth();
+  const { isConnected, accessToken, userInfo, firebaseUser } = useAuth();
   const [stats, setStats] = useState<DashboardStats>(DEFAULT_STATS);
   const [steps, setSteps] = useState(0);
   const [calories, setCalories] = useState(0);
@@ -139,10 +185,12 @@ export function useGoogleFitData() {
       applySummary(summary);
 
       if (summary.steps > 0) {
+        const authUid = getFirebaseAuth().currentUser?.uid;
         const s = computeStats(summary.steps, summary.calories, goalsRef.current);
         await upsertDailyProgress({
           documentId: docId,
           userId: progressUserId,
+          uid: authUid ?? progressUserId,
           displayName,
           date: range.dateIso,
           steps: summary.steps,
@@ -166,6 +214,9 @@ export function useGoogleFitData() {
         summary.calories,
         summary.distanceMeters,
       );
+
+      // Check & persist achievements + XP
+      await syncAchievementsAndXp(summary.steps, summary.calories, summary.distanceMeters);
 
       return summary;
     }
