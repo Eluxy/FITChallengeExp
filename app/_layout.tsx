@@ -129,6 +129,7 @@ export default function RootLayout() {
             <Stack.Screen name="notifications_page" options={{ headerShown: false }} />
             <Stack.Screen name="privacy_page" options={{ headerShown: false }} />
             <Stack.Screen name="theme_page" options={{ headerShown: false }} />
+            <Stack.Screen name="workout_session_page" options={{ headerShown: false }} />
           </Stack>
         </LayoutContent>
       </ServiceProvider>

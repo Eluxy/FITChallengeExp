@@ -185,13 +185,13 @@ export default function MainPage() {
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push("/device_page")}
+            onPress={() => router.push("/workouts_page")}
             style={({ pressed }) => [
               styles.btnHalf,
               pressed && styles.btnPressed,
             ]}
           >
-            <Text style={styles.btnTextSmall}>УСТРОЙСТВА</Text>
+            <Text style={styles.btnTextSmall}>ТРЕНИРОВКИ</Text>
           </Pressable>
         </View>
       </ScrollView>

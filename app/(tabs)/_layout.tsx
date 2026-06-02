@@ -37,11 +37,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="device_page"
+        name="workouts_page"
         options={{
-          title: "Устройства",
+          title: "Тренировки",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="bolt.horizontal.fill" color={color} />
+            <IconSymbol size={28} name="figure.run" color={color} />
           ),
         }}
       />
