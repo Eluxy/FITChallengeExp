@@ -4,12 +4,12 @@ import { PanResponder } from "react-native";
 
 const SWIPE_THRESHOLD = 50;
 
-type TabName = "index" | "explore" | "device_page" | "challenges_page";
+type TabName = "index" | "explore" | "workouts_page" | "challenges_page";
 
 const VISIBLE_TABS: TabName[] = [
   "index",
   "explore",
-  "device_page",
+  "workouts_page",
   "challenges_page",
 ];
 

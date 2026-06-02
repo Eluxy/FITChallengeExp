@@ -13,6 +13,7 @@ const MAPPING = {
   "paperplane.fill": "send",
   "chevron.left.forwardslash.chevron.right": "code-tags",
   "chevron.right": "chevron-right",
+  "figure.run": "run",
 } as const;
 
 type IconSymbolName = keyof typeof MAPPING;
