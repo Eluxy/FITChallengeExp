@@ -16,6 +16,7 @@ export function useChallengeDetailViewModel(
     if (!challengeId) return;
     setIsLoading(true);
     try {
+      await challengeRepository.checkAndCompleteExpiredChallenges();
       const data = await challengeRepository.getChallenge(challengeId);
       setChallenge(data);
     } catch {

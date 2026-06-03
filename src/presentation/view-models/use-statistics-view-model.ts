@@ -1,7 +1,7 @@
 import { fetchDailyProgressRange } from "@/src/data/firebase/firestore-rest";
 import { fetchGoogleFitStatsRange } from "@/src/data/google-fit/fetch-google-fit-summary";
 import { getStatsCache, saveStatsCache, type StatsCacheData } from "@/src/services/storage/cache-service";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type Period = "day" | "month" | "year";
 
@@ -33,12 +33,24 @@ const EMPTY_STATS: StatsState = {
   dailyBreakdown: [],
 };
 
-function getStartDate(period: Period): Date {
-  const date = new Date();
+function getStartDate(period: Period, referenceDate: Date): Date {
+  const date = new Date(referenceDate);
   date.setHours(0, 0, 0, 0);
   if (period === "month") date.setDate(1);
   else if (period === "year") date.setMonth(0, 1);
   return date;
+}
+
+function getEndDate(period: Period, referenceDate: Date): Date {
+  const date = new Date(referenceDate);
+  date.setHours(23, 59, 59, 999);
+  if (period === "month") {
+    date.setMonth(date.getMonth() + 1, 0);
+  } else if (period === "year") {
+    date.setFullYear(date.getFullYear(), 11, 31);
+  }
+  const now = new Date();
+  return date.getTime() > now.getTime() ? now : date;
 }
 
 function formatIsoDate(date: Date): string {
@@ -60,17 +72,27 @@ function formatBestDate(isoDate: string): string {
   }
 }
 
-export function getPeriodTitle(period: Period): string {
-  const now = new Date();
+export function getPeriodTitle(period: Period, referenceDate: Date): string {
   if (period === "day") {
     return `Сегодня, ${new Intl.DateTimeFormat("ru-RU", {
       day: "numeric", month: "long", year: "numeric",
-    }).format(now)}`;
+    }).format(new Date())}`;
   }
   if (period === "month") {
-    return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(now);
+    return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(referenceDate);
   }
-  return String(now.getFullYear());
+  return String(referenceDate.getFullYear());
+}
+
+function isCurrentPeriod(period: Period, referenceDate: Date): boolean {
+  const now = new Date();
+  if (period === "month") {
+    return referenceDate.getMonth() === now.getMonth() && referenceDate.getFullYear() === now.getFullYear();
+  }
+  if (period === "year") {
+    return referenceDate.getFullYear() === now.getFullYear();
+  }
+  return true;
 }
 
 export function useStatisticsViewModel(
@@ -79,10 +101,12 @@ export function useStatisticsViewModel(
   accessToken?: string | null,
 ) {
   const [period, setPeriod] = useState<Period>("day");
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [stats, setStats] = useState<StatsState>(EMPTY_STATS);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const periodRef = useRef<Period>("day");
+  const selectedDateRef = useRef(new Date());
   const mountedRef = useRef(true);
   const loadIdRef = useRef(0);
 
@@ -98,11 +122,12 @@ export function useStatisticsViewModel(
     setIsLoading(true);
     setError(null);
     const currentPeriod = periodRef.current;
+    const currentSelectedDate = selectedDateRef.current;
     const loadId = ++loadIdRef.current;
 
     try {
-      const startDate = getStartDate(currentPeriod);
-      const endDate = new Date();
+      const startDate = getStartDate(currentPeriod, currentSelectedDate);
+      const endDate = getEndDate(currentPeriod, currentSelectedDate);
       const startMs = startDate.getTime();
       const endMs = endDate.getTime();
 
@@ -146,7 +171,6 @@ export function useStatisticsViewModel(
         }
       }
 
-      // Try cache
       const cached = await getStatsCache(currentPeriod);
       if (cached && loadIdRef.current === loadId && mountedRef.current) {
         setStats({
@@ -163,7 +187,6 @@ export function useStatisticsViewModel(
         return;
       }
 
-      // Fallback to Firebase daily_progress
       const rows = await fetchDailyProgressRange({
         userId: progressUserId,
         startDate: formatIsoDate(startDate),
@@ -241,12 +264,40 @@ export function useStatisticsViewModel(
 
   useEffect(() => {
     periodRef.current = period;
+    selectedDateRef.current = selectedDate;
     loadStatistics();
-  }, [period, progressUserId, isConnected, accessToken]);
+  }, [period, selectedDate, progressUserId, isConnected, accessToken]);
+
+  const goNext = useCallback(() => {
+    setSelectedDate(prev => {
+      const next = new Date(prev);
+      if (period === "month") next.setMonth(next.getMonth() + 1);
+      else next.setFullYear(next.getFullYear() + 1);
+      return next;
+    });
+  }, [period]);
+
+  const goPrev = useCallback(() => {
+    setSelectedDate(prev => {
+      const prevDate = new Date(prev);
+      if (period === "month") prevDate.setMonth(prevDate.getMonth() - 1);
+      else prevDate.setFullYear(prevDate.getFullYear() - 1);
+      return prevDate;
+    });
+  }, [period]);
+
+  const handleSetPeriod = useCallback((newPeriod: Period) => {
+    setSelectedDate(new Date());
+    setPeriod(newPeriod);
+  }, []);
 
   return {
     period,
-    setPeriod,
+    setPeriod: handleSetPeriod,
+    selectedDate,
+    goNext,
+    goPrev,
+    isNextDisabled: isCurrentPeriod(period, selectedDate),
     stats,
     isLoading,
     error,

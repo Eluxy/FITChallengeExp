@@ -305,39 +305,6 @@ export function useWorkoutsViewModel() {
       }
     }
 
-    // save to daily_progress
-    try {
-      const auth = getFirebaseAuth();
-      const user = auth.currentUser;
-      if (user && user.email) {
-        const today = new Date().toISOString().slice(0, 10);
-        const userId = user.email.replace(/[@.]/g, "_");
-        const docId = `${userId}_${today}`;
-
-        const existing = await fetchDailyProgressRange({
-          userId,
-          startDate: today,
-          endDate: today,
-        });
-
-        const prevSteps = existing.length > 0 ? existing[0].steps : 0;
-        const prevCalories = existing.length > 0 ? existing[0].calories : 0;
-
-        await upsertDailyProgress({
-          documentId: docId,
-          userId,
-          uid: user.uid,
-          displayName: user.displayName ?? "Пользователь",
-          date: today,
-          steps: prevSteps + finalSteps,
-          calories: prevCalories + finalCalories,
-          progressPercent: 0,
-        });
-      }
-    } catch {
-      // daily_progress update failed, non-critical
-    }
-
     setLastRecord(record);
     setHistory((prev) => [record, ...prev]);
     setStatus("finished");

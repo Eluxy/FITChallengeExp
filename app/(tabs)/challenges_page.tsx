@@ -1,3 +1,4 @@
+import { useAppTheme, type ThemeColors } from "@/src/context/theme-context";
 import { useAuth } from "@/src/context/auth-context";
 import { useServices } from "@/src/context/service-provider";
 import { useGoogleFitData } from "@/src/presentation/view-models/use-google-fit-data";
@@ -28,17 +29,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const COLORS = {
-  bg: "#F8EDAD",
-  cream: "#F8EDAD",
-  card: "#F8EDAD",
-  text: "#ED7C30",
-  accent: "#ED7C30",
-  muted: "#B35A22",
-  green: "#4CAF50",
-  red: "#f44336",
-};
-
 type Tab = "active" | "daily" | "completed";
 
 const CHALLENGE_TYPES: { type: ChallengeType; label: string }[] = [
@@ -57,6 +47,8 @@ export default function ChallengesPage() {
   useGoogleFitData();
   const [activeTab, setActiveTab] = useState<Tab>("active");
   const swipeHandlers = useSwipeableTab("challenges_page");
+  const { colors } = useAppTheme();
+  const s = createStyles(colors);
 
   const {
     activeChallenges,
@@ -128,19 +120,19 @@ export default function ChallengesPage() {
     return (
       <Pressable
         key={challenge.id}
-        style={styles.challengeCard}
+        style={s.challengeCard}
         onPress={() => router.push(`/challenge-detail_page?id=${challenge.id}`)}
       >
-        <View style={styles.challengeTopRow}>
-          <View style={styles.challengeLeft}>
+        <View style={s.challengeTopRow}>
+          <View style={s.challengeLeft}>
             <MaterialCommunityIcons
               name={getChallengeIcon(challenge.type) as any}
               size={24}
-              color={COLORS.accent}
+              color={colors.accent}
             />
             <View style={{ flex: 1 }}>
-              <Text style={styles.challengeTitle}>{challenge.title}</Text>
-              <Text style={styles.challengeSubtitle}>
+              <Text style={s.challengeTitle}>{challenge.title}</Text>
+              <Text style={s.challengeSubtitle}>
                 {challenge.targetValue.toLocaleString()}{" "}
                 {getChallengeUnit(challenge.type)}
                 {challenge.isSystem ? " • Ежедневный" : ""}
@@ -148,24 +140,24 @@ export default function ChallengesPage() {
             </View>
           </View>
           {isCompleted && challenge.winnerId ? (
-            <Text style={styles.challengeWinner}>
+            <Text style={s.challengeWinner}>
               👑 {challenge.participants.find((p) => p.userId === challenge.winnerId)?.displayName ?? "Победитель"}
             </Text>
           ) : isCompleted ? (
-            <Text style={[styles.challengeWinner, { color: COLORS.muted }]}>Никто не выполнил</Text>
+            <Text style={[s.challengeWinner, { color: colors.muted }]}>Никто не выполнил</Text>
           ) : (
-            <Text style={styles.challengeReward}>{progress}%</Text>
+            <Text style={s.challengeReward}>{progress}%</Text>
           )}
         </View>
 
         {!isCompleted && (
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progress}%` }]} />
+          <View style={s.progressTrack}>
+            <View style={[s.progressFill, { width: `${progress}%` }]} />
           </View>
         )}
 
-        <View style={styles.challengeBottomRow}>
-          <Text style={styles.progressText}>
+        <View style={s.challengeBottomRow}>
+          <Text style={s.progressText}>
             {challenge.participants.length} участников • до{" "}
             {new Date(challenge.endDate).toLocaleDateString("ru-RU")}
           </Text>
@@ -173,9 +165,9 @@ export default function ChallengesPage() {
             <Pressable
               onPress={() => handleDeleteChallenge(challenge)}
               hitSlop={8}
-              style={styles.deleteBtn}
+              style={s.deleteBtn}
             >
-              <MaterialCommunityIcons name="delete-outline" size={20} color={COLORS.red} />
+              <MaterialCommunityIcons name="delete-outline" size={20} color={colors.error} />
             </Pressable>
           )}
         </View>
@@ -186,58 +178,58 @@ export default function ChallengesPage() {
   const renderDailyFormModal = () => (
     <Modal visible={showDailyForm} transparent animationType="slide">
       <KeyboardAvoidingView
-        style={styles.modalOverlay}
+        style={s.modalOverlay}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>НОВЫЙ ЕЖЕДНЕВНЫЙ ВЫЗОВ</Text>
+        <View style={s.modalContent}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>НОВЫЙ ЕЖЕДНЕВНЫЙ ВЫЗОВ</Text>
             <Pressable onPress={() => setShowDailyForm(false)}>
-              <MaterialCommunityIcons name="close" size={24} color={COLORS.text} />
+              <MaterialCommunityIcons name="close" size={24} color={colors.text} />
             </Pressable>
           </View>
 
-          <Text style={styles.label}>Тип активности</Text>
-          <View style={styles.typeRow}>
+          <Text style={s.label}>Тип активности</Text>
+          <View style={s.typeRow}>
             {CHALLENGE_TYPES.map((t) => (
               <Pressable
                 key={t.type}
-                style={[styles.typeBtn, dailyType === t.type && styles.typeActive]}
+                style={[s.typeBtn, dailyType === t.type && s.typeActive]}
                 onPress={() => setDailyType(t.type)}
               >
                 <MaterialCommunityIcons
                   name={getChallengeIcon(t.type) as any}
                   size={20}
-                  color={dailyType === t.type ? "#FFF" : COLORS.text}
+                  color={dailyType === t.type ? "#FFF" : colors.text}
                 />
-                <Text style={[styles.typeText, dailyType === t.type && styles.typeTextActive]}>
+                <Text style={[s.typeText, dailyType === t.type && s.typeTextActive]}>
                   {t.label}
                 </Text>
               </Pressable>
             ))}
           </View>
 
-          <Text style={styles.label}>
+          <Text style={s.label}>
             Цель ({getChallengeUnit(dailyType)})
           </Text>
           <TextInput
-            style={styles.input}
+            style={s.input}
             placeholder="Например: 10000"
-            placeholderTextColor={COLORS.muted}
+            placeholderTextColor={colors.muted}
             value={dailyTarget}
             onChangeText={setDailyTarget}
             keyboardType="number-pad"
           />
 
-          <Text style={styles.hint}>
+          <Text style={s.hint}>
             Челлендж создаётся на 1 день. Выполняйте — и он автоматически завершится.
           </Text>
 
           <Pressable
             style={({ pressed }) => [
-              styles.createBtn,
-              pressed && styles.btnPressed,
-              isCreatingDaily && styles.btnDisabled,
+              s.createBtn,
+              pressed && s.btnPressed,
+              isCreatingDaily && s.btnDisabled,
             ]}
             onPress={handleCreateDaily}
             disabled={isCreatingDaily}
@@ -245,7 +237,7 @@ export default function ChallengesPage() {
             {isCreatingDaily ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.createBtnText}>СОЗДАТЬ ВЫЗОВ</Text>
+              <Text style={s.createBtnText}>СОЗДАТЬ ВЫЗОВ</Text>
             )}
           </Pressable>
         </View>
@@ -255,46 +247,46 @@ export default function ChallengesPage() {
 
   return (
     <ScrollView
-      style={[styles.root, { paddingTop: insets.top + 8 }]}
-      contentContainerStyle={styles.content}
+      style={[s.root, { paddingTop: insets.top + 8 }]}
+      contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl refreshing={isLoading} onRefresh={refresh} />
       }
       {...swipeHandlers}
     >
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>ЧЕЛЛЕНДЖИ</Text>
+      <View style={s.header}>
+        <Text style={s.headerTitle}>ЧЕЛЛЕНДЖИ</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <NotificationBell color={COLORS.text} />
+          <NotificationBell color={colors.text} />
         </View>
       </View>
 
-      <View style={styles.switchCard}>
+      <View style={s.switchCard}>
         <Pressable onPress={() => setActiveTab("active")}>
           <Text
             style={
-              activeTab === "active" ? styles.switchActive : styles.switchItem
+              activeTab === "active" ? s.switchActive : s.switchItem
             }
           >
             АКТИВНЫЕ
           </Text>
         </Pressable>
-        <Text style={styles.switchDivider}> | </Text>
+        <Text style={s.switchDivider}> | </Text>
         <Pressable onPress={() => setActiveTab("daily")}>
           <Text
             style={
-              activeTab === "daily" ? styles.switchActive : styles.switchItem
+              activeTab === "daily" ? s.switchActive : s.switchItem
             }
           >
             ЕЖЕДНЕВНЫЕ
           </Text>
         </Pressable>
-        <Text style={styles.switchDivider}> | </Text>
+        <Text style={s.switchDivider}> | </Text>
         <Pressable onPress={() => setActiveTab("completed")}>
           <Text
             style={
-              activeTab === "completed" ? styles.switchActive : styles.switchItem
+              activeTab === "completed" ? s.switchActive : s.switchItem
             }
           >
             АРХИВ
@@ -303,30 +295,30 @@ export default function ChallengesPage() {
       </View>
 
       {!isConnected ? (
-        <View style={styles.notConnectedCard}>
+        <View style={s.notConnectedCard}>
           <MaterialCommunityIcons
             name="account-off-outline"
             size={48}
-            color={COLORS.muted}
+            color={colors.muted}
           />
-          <Text style={styles.notConnectedText}>
+          <Text style={s.notConnectedText}>
             Войдите в аккаунт, чтобы участвовать в челленджах
           </Text>
         </View>
       ) : isLoading ? (
         <View style={{ paddingVertical: 40, alignItems: "center" }}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
+          <ActivityIndicator size="large" color={colors.accent} />
         </View>
       ) : activeTab === "active" ? (
-        <View style={styles.listCard}>
+        <View style={s.listCard}>
           {activeChallenges.length === 0 ? (
             <View style={{ alignItems: "center", paddingVertical: 20 }}>
               <MaterialCommunityIcons
                 name="flag-checkered"
                 size={40}
-                color={COLORS.muted}
+                color={colors.muted}
               />
-              <Text style={{ color: COLORS.muted, marginTop: 8 }}>
+              <Text style={{ color: colors.muted, marginTop: 8 }}>
                 Нет активных челленджей
               </Text>
             </View>
@@ -334,27 +326,27 @@ export default function ChallengesPage() {
             activeChallenges.map((c) => renderChallengeCard(c))
           )}
           <Pressable
-            style={styles.newChallengeButton}
+            style={s.newChallengeButton}
             onPress={() => router.push("/create-challenge_page")}
           >
             <MaterialCommunityIcons
               name="plus"
               size={18}
-              color={COLORS.bg}
+              color={colors.bg}
             />
-            <Text style={styles.newChallengeText}>СОЗДАТЬ ЧЕЛЛЕНДЖ</Text>
+            <Text style={s.newChallengeText}>СОЗДАТЬ ЧЕЛЛЕНДЖ</Text>
           </Pressable>
         </View>
       ) : activeTab === "daily" ? (
-        <View style={styles.listCard}>
+        <View style={s.listCard}>
           {dailyChallenges.length === 0 ? (
             <View style={{ alignItems: "center", paddingVertical: 20 }}>
               <MaterialCommunityIcons
                 name="calendar-today"
                 size={40}
-                color={COLORS.muted}
+                color={colors.muted}
               />
-              <Text style={{ color: COLORS.muted, marginTop: 8, textAlign: "center" }}>
+              <Text style={{ color: colors.muted, marginTop: 8, textAlign: "center" }}>
                 Нет ежедневных вызовов
               </Text>
             </View>
@@ -362,27 +354,27 @@ export default function ChallengesPage() {
             dailyChallenges.map((c) => renderChallengeCard(c, true))
           )}
           <Pressable
-            style={styles.newChallengeButton}
+            style={s.newChallengeButton}
             onPress={() => setShowDailyForm(true)}
           >
             <MaterialCommunityIcons
               name="plus"
               size={18}
-              color={COLORS.bg}
+              color={colors.bg}
             />
-            <Text style={styles.newChallengeText}>+ ЕЖЕДНЕВНЫЙ ВЫЗОВ</Text>
+            <Text style={s.newChallengeText}>+ ЕЖЕДНЕВНЫЙ ВЫЗОВ</Text>
           </Pressable>
         </View>
       ) : (
-        <View style={styles.listCard}>
+        <View style={s.listCard}>
           {completedChallenges.length === 0 ? (
             <View style={{ alignItems: "center", paddingVertical: 20 }}>
               <MaterialCommunityIcons
                 name="archive-outline"
                 size={40}
-                color={COLORS.muted}
+                color={colors.muted}
               />
-              <Text style={{ color: COLORS.muted, marginTop: 8 }}>
+              <Text style={{ color: colors.muted, marginTop: 8 }}>
                 Ещё нет завершённых челленджей
               </Text>
             </View>
@@ -397,197 +389,199 @@ export default function ChallengesPage() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
-  content: { paddingHorizontal: 18, paddingBottom: 24, gap: 14 },
-  header: {
-    backgroundColor: COLORS.cream,
-    borderRadius: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  headerTitle: { fontSize: 34, color: COLORS.text, fontFamily: "Rimma_sans" },
-  switchCard: {
-    backgroundColor: COLORS.cream,
-    borderRadius: 24,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-  },
-  switchActive: {
-    fontSize: 17,
-    color: COLORS.text,
-    fontFamily: "Rimma_sans",
-  },
-  switchItem: {
-    fontSize: 15,
-    color: COLORS.muted,
-    fontFamily: "Rimma_sans",
-  },
-  switchDivider: {
-    color: COLORS.muted,
-  },
-  notConnectedCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 24,
-    alignItems: "center",
-    paddingVertical: 24,
-    paddingHorizontal: 18,
-  },
-  notConnectedText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: COLORS.muted,
-    textAlign: "center",
-    fontFamily: "Rimma_sans",
-  },
-  listCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 24,
-    padding: 14,
-    elevation: 7,
-  },
-  challengeCard: {
-    backgroundColor: COLORS.cream,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 10,
-  },
-  challengeTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  challengeLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    flex: 1,
-  },
-  challengeTitle: {
-    fontSize: 20,
-    color: COLORS.text,
-    fontFamily: "Rimma_sans",
-  },
-  challengeSubtitle: {
-    fontSize: 13,
-    color: COLORS.muted,
-  },
-  challengeReward: {
-    fontSize: 18,
-    color: COLORS.accent,
-    fontFamily: "Rimma_sans",
-  },
-  challengeWinner: {
-    fontSize: 13,
-    color: COLORS.green,
-    fontFamily: "Rimma_sans",
-    maxWidth: 140,
-    textAlign: "right",
-  },
-  challengeBottomRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 4,
-  },
-  progressTrack: {
-    marginTop: 8,
-    height: 10,
-    borderRadius: 6,
-    backgroundColor: "#E8D7B8",
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 6,
-    backgroundColor: COLORS.accent,
-  },
-  progressText: {
-    fontSize: 13,
-    color: COLORS.muted,
-  },
-  deleteBtn: {
-    padding: 4,
-  },
-  newChallengeButton: {
-    marginTop: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: COLORS.accent,
-  },
-  newChallengeText: {
-    marginLeft: 4,
-    fontSize: 18,
-    color: COLORS.bg,
-    fontFamily: "Rimma_sans",
-  },
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.bg },
+    content: { paddingHorizontal: 18, paddingBottom: 24, gap: 14 },
+    header: {
+      backgroundColor: colors.cream,
+      borderRadius: 18,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+    },
+    headerTitle: { fontSize: 34, color: colors.text, fontFamily: "Rimma_sans" },
+    switchCard: {
+      backgroundColor: colors.cream,
+      borderRadius: 24,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      flexDirection: "row",
+    },
+    switchActive: {
+      fontSize: 17,
+      color: colors.text,
+      fontFamily: "Rimma_sans",
+    },
+    switchItem: {
+      fontSize: 15,
+      color: colors.muted,
+      fontFamily: "Rimma_sans",
+    },
+    switchDivider: {
+      color: colors.muted,
+    },
+    notConnectedCard: {
+      backgroundColor: colors.card,
+      borderRadius: 24,
+      alignItems: "center",
+      paddingVertical: 24,
+      paddingHorizontal: 18,
+    },
+    notConnectedText: {
+      marginTop: 12,
+      fontSize: 16,
+      color: colors.muted,
+      textAlign: "center",
+      fontFamily: "Rimma_sans",
+    },
+    listCard: {
+      backgroundColor: colors.card,
+      borderRadius: 24,
+      padding: 14,
+      elevation: 7,
+    },
+    challengeCard: {
+      backgroundColor: colors.cream,
+      borderRadius: 16,
+      padding: 12,
+      marginBottom: 10,
+    },
+    challengeTopRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    challengeLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      flex: 1,
+    },
+    challengeTitle: {
+      fontSize: 20,
+      color: colors.text,
+      fontFamily: "Rimma_sans",
+    },
+    challengeSubtitle: {
+      fontSize: 13,
+      color: colors.muted,
+    },
+    challengeReward: {
+      fontSize: 18,
+      color: colors.accent,
+      fontFamily: "Rimma_sans",
+    },
+    challengeWinner: {
+      fontSize: 13,
+      color: colors.green,
+      fontFamily: "Rimma_sans",
+      maxWidth: 140,
+      textAlign: "right",
+    },
+    challengeBottomRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: 4,
+    },
+    progressTrack: {
+      marginTop: 8,
+      height: 10,
+      borderRadius: 6,
+      backgroundColor: colors.divider,
+      overflow: "hidden",
+    },
+    progressFill: {
+      height: "100%",
+      borderRadius: 6,
+      backgroundColor: colors.accent,
+    },
+    progressText: {
+      fontSize: 13,
+      color: colors.muted,
+    },
+    deleteBtn: {
+      padding: 4,
+    },
+    newChallengeButton: {
+      marginTop: 8,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 10,
+      borderRadius: 12,
+      backgroundColor: colors.accent,
+    },
+    newChallengeText: {
+      marginLeft: 4,
+      fontSize: 18,
+      color: colors.bg,
+      fontFamily: "Rimma_sans",
+    },
 
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: COLORS.bg,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    gap: 12,
-    paddingBottom: 40,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  modalTitle: {
-    fontSize: 20,
-    color: COLORS.text,
-    fontFamily: "Rimma_sans",
-  },
-  label: { fontSize: 14, color: COLORS.muted, fontFamily: "Rimma_sans" },
-  input: {
-    backgroundColor: COLORS.cream,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: COLORS.text,
-  },
-  hint: {
-    fontSize: 12,
-    color: COLORS.muted,
-    textAlign: "center",
-    fontStyle: "italic",
-  },
-  typeRow: { flexDirection: "row", gap: 8 },
-  typeBtn: {
-    flex: 1,
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: COLORS.cream,
-    borderRadius: 12,
-    paddingVertical: 10,
-  },
-  typeActive: { backgroundColor: COLORS.accent },
-  typeText: { fontSize: 12, color: COLORS.text, fontFamily: "Rimma_sans" },
-  typeTextActive: { color: "#FFF" },
-  createBtn: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  createBtnText: { fontSize: 18, color: COLORS.bg, fontFamily: "Rimma_sans" },
-  btnPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
-  btnDisabled: { opacity: 0.6 },
-});
+    // Modal
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.4)",
+      justifyContent: "flex-end",
+    },
+    modalContent: {
+      backgroundColor: colors.bg,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: 20,
+      gap: 12,
+      paddingBottom: 40,
+    },
+    modalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    modalTitle: {
+      fontSize: 20,
+      color: colors.text,
+      fontFamily: "Rimma_sans",
+    },
+    label: { fontSize: 14, color: colors.muted, fontFamily: "Rimma_sans" },
+    input: {
+      backgroundColor: colors.cream,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 16,
+      color: colors.text,
+    },
+    hint: {
+      fontSize: 12,
+      color: colors.muted,
+      textAlign: "center",
+      fontStyle: "italic",
+    },
+    typeRow: { flexDirection: "row", gap: 8 },
+    typeBtn: {
+      flex: 1,
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: colors.cream,
+      borderRadius: 12,
+      paddingVertical: 10,
+    },
+    typeActive: { backgroundColor: colors.accent },
+    typeText: { fontSize: 12, color: colors.text, fontFamily: "Rimma_sans" },
+    typeTextActive: { color: colors.bg },
+    createBtn: {
+      backgroundColor: colors.accent,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: "center",
+      marginTop: 4,
+    },
+    createBtnText: { fontSize: 18, color: colors.bg, fontFamily: "Rimma_sans" },
+    btnPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+    btnDisabled: { opacity: 0.6 },
+  });
+}

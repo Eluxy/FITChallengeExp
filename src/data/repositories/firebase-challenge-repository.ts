@@ -378,7 +378,7 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
     const now = new Date().toISOString();
     const activeQ = query(
       this.challengesCol,
-      where("status", "==", "active"),
+      where("status", "in", ["active", "pending"]),
     );
     const snapshot = await withTimeout(getDocs(activeQ));
     let completed = 0;
@@ -399,10 +399,10 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
         completedAt: now,
       };
 
-      const hasProgress = participants.some((p) => p.currentValue > 0);
+      const reachedGoal = participants.some((p) => p.currentValue >= data.targetValue);
       let winnerId: string | undefined;
 
-      if (hasProgress) {
+      if (reachedGoal) {
         const sorted = [...participants].sort((a, b) => b.currentValue - a.currentValue);
         winnerId = sorted[0].userId;
         updateData.winnerId = winnerId;
@@ -410,6 +410,34 @@ export class FirebaseChallengeRepository implements ChallengeRepository {
       }
 
       await updateDoc(doc(this.challengesCol, docSnap.id), updateData);
+
+      if (data.isSystem) {
+        const nextStart = new Date(data.endDate);
+        const nextEnd = new Date(nextStart);
+        nextEnd.setDate(nextEnd.getDate() + 1);
+
+        const renewedParticipants = participants.map((p) => ({
+          userId: p.userId,
+          displayName: p.displayName,
+          photoUrl: p.photoUrl,
+          joinedAt: new Date().toISOString(),
+          currentValue: 0,
+        }));
+
+        await addDoc(this.challengesCol, {
+          title: data.title,
+          description: data.description ?? "",
+          creatorId: data.creatorId,
+          type: data.type,
+          targetValue: data.targetValue,
+          startDate: nextStart.toISOString(),
+          endDate: nextEnd.toISOString(),
+          status: "pending",
+          participants: renewedParticipants,
+          isSystem: true,
+          createdAt: new Date().toISOString(),
+        });
+      }
 
       const winnerName = winnerId
         ? participants.find((p) => p.userId === winnerId)?.displayName || "Победитель"
