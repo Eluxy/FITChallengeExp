@@ -73,39 +73,25 @@ export async function fetchGoogleFitSummary(params: {
   endTimeMillis: number;
 }): Promise<GoogleFitSummary | null> {
   const { accessToken, startTimeMillis, endTimeMillis } = params;
+  const rangeMs = endTimeMillis - startTimeMillis;
 
-  const [mainResult, distanceResult] = await Promise.all([
-    aggregateSingle(accessToken, startTimeMillis, endTimeMillis, [
-      "com.google.step_count.delta",
-      "com.google.calories.expended",
-    ]),
-    aggregateSingle(accessToken, startTimeMillis, endTimeMillis, [
-      "com.google.distance.delta",
-    ]),
+  const [stepsRes, calRes, distRes] = await Promise.all([
+    aggregateSingle(accessToken, startTimeMillis, endTimeMillis, ["com.google.step_count.delta"]),
+    aggregateSingle(accessToken, startTimeMillis, endTimeMillis, ["com.google.calories.expended"]),
+    aggregateSingle(accessToken, startTimeMillis, endTimeMillis, ["com.google.distance.delta"]),
   ]);
 
-  let steps = 0;
-  let calories = 0;
-  const mainDatasets = mainResult?.bucket?.[0]?.dataset;
-  if (mainDatasets && mainDatasets.length >= 2) {
-    steps = sumValues(mainDatasets[0], 0, "int");
-    calories = Math.round(sumValues(mainDatasets[1], 0, "fp"));
-  }
-  console.log("📥 Datasets:", mainDatasets?.length,
-    mainDatasets?.[0]?.point?.[0]?.value ? JSON.stringify(mainDatasets[0].point[0].value) : "-",
-    mainDatasets?.[1]?.point?.[0]?.value ? JSON.stringify(mainDatasets[1].point[0].value) : "-");
+  const stepsDataset = stepsRes?.bucket?.[0]?.dataset?.[0];
+  const calDataset = calRes?.bucket?.[0]?.dataset?.[0];
+  const distDataset = distRes?.bucket?.[0]?.dataset?.[0];
 
-  let distanceMeters: number | undefined;
-  const distDataset = distanceResult?.bucket?.[0]?.dataset?.[0];
-  if (distDataset) {
-    distanceMeters = Math.round(sumValues(distDataset, 0, "fp")) || undefined;
-  }
-  console.log("📥 Distance datasets:", distanceResult?.bucket?.[0]?.dataset?.length,
-    distDataset?.point?.[0]?.value ? JSON.stringify(distDataset.point[0].value) : "-");
+  const steps = stepsDataset ? sumValues(stepsDataset, 0, "int") : 0;
+  const calories = calDataset ? Math.round(sumValues(calDataset, 0, "fp")) : 0;
+  const distanceMeters = distDataset ? Math.round(sumValues(distDataset, 0, "fp")) || undefined : undefined;
 
-  console.log("📊 Parsed:", { steps, calories, distanceMeters });
+  console.log("📊 GF summary:", { steps, calories, distanceMeters, rangeMs });
 
-  if (mainDatasets === undefined && distDataset === undefined) {
+  if (stepsDataset === undefined && calDataset === undefined && distDataset === undefined) {
     return null;
   }
 

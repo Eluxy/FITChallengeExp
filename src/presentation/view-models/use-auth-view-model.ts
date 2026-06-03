@@ -1,3 +1,4 @@
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthService, type AuthMethod, type UserInfo } from "@/src/domain/services/auth-service";
 
@@ -35,6 +36,13 @@ export function useAuthViewModel() {
       if (user) {
         if (!isInitialized.current) {
           isInitialized.current = true;
+
+          try {
+            const tokens = await GoogleSignin.getTokens();
+            if (tokens.accessToken) setAccessToken(tokens.accessToken);
+          } catch {
+            // Not signed in with Google (e.g., email auth) — no access token
+          }
 
           try {
             const data = await authService.fetchUserProfile(user.uid);

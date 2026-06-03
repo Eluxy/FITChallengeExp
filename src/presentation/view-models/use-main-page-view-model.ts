@@ -49,12 +49,18 @@ export function useMainPageViewModel() {
   } | null>(null);
 
   const progressUserId = useMemo(
-    () => userInfo?.email?.replace(/[@.]/g, "_") ?? process.env.EXPO_PUBLIC_PROGRESS_USER_ID ?? "guest",
+    () =>
+      userInfo?.email?.replace(/[@.]/g, "_") ??
+      process.env.EXPO_PUBLIC_PROGRESS_USER_ID ??
+      "guest",
     [userInfo],
   );
 
   const displayName = useMemo(
-    () => userInfo?.name ?? process.env.EXPO_PUBLIC_PROGRESS_DISPLAY_NAME ?? "Гость",
+    () =>
+      userInfo?.name ??
+      process.env.EXPO_PUBLIC_PROGRESS_DISPLAY_NAME ??
+      "Гость",
     [userInfo],
   );
 
@@ -66,11 +72,11 @@ export function useMainPageViewModel() {
       console.log("🔵 Checking Play Services...");
       await GoogleSignin.hasPlayServices();
       console.log("✅ Play Services OK");
-      
+
       console.log("🔵 Starting Google Sign In...");
       const signInResult = await GoogleSignin.signIn();
       console.log("✅ Sign In successful:", signInResult.data?.user?.email);
-      
+
       // Сохраняем информацию о пользователе
       const user = signInResult.data?.user;
       if (user) {
@@ -81,11 +87,11 @@ export function useMainPageViewModel() {
         });
         console.log("👤 User info saved:", user.name, user.email);
       }
-      
+
       console.log("🔵 Getting tokens...");
       const tokens = await GoogleSignin.getTokens();
       console.log("✅ Tokens received");
-      
+
       const token = tokens.accessToken;
 
       if (!token) {
@@ -108,7 +114,11 @@ export function useMainPageViewModel() {
   }, []);
 
   const saveTodayProgress = useCallback(
-    async (nextSteps: number, nextCalories: number, nextProgressPercent: number) => {
+    async (
+      nextSteps: number,
+      nextCalories: number,
+      nextProgressPercent: number,
+    ) => {
       const { dateIso } = getDayRange();
       const documentId = `${progressUserId}_${dateIso}`;
 
@@ -127,16 +137,25 @@ export function useMainPageViewModel() {
     [progressUserId, displayName],
   );
 
-  const mapSummaryToStats = useCallback((nextSteps: number, nextCalories: number) => {
-    const stepsPercent = Math.min(Math.round((nextSteps / GOAL_STEPS) * 100), 100);
-    const caloriesPercent = Math.min(Math.round((nextCalories / GOAL_CALORIES) * 100), 100);
-    const progressPercent = Math.min(
-      Math.round(stepsPercent * 0.7 + caloriesPercent * 0.3),
-      100,
-    );
+  const mapSummaryToStats = useCallback(
+    (nextSteps: number, nextCalories: number) => {
+      const stepsPercent = Math.min(
+        Math.round((nextSteps / GOAL_STEPS) * 100),
+        100,
+      );
+      const caloriesPercent = Math.min(
+        Math.round((nextCalories / GOAL_CALORIES) * 100),
+        100,
+      );
+      const progressPercent = Math.min(
+        Math.round(stepsPercent * 0.7 + caloriesPercent * 0.3),
+        100,
+      );
 
-    return { stepsPercent, caloriesPercent, progressPercent };
-  }, []);
+      return { stepsPercent, caloriesPercent, progressPercent };
+    },
+    [],
+  );
 
   const loadTodayStats = useCallback(
     async (token: string) => {
@@ -146,7 +165,7 @@ export function useMainPageViewModel() {
       try {
         const range = getDayRange();
         console.log("📅 Loading today's stats for range:", range);
-        
+
         const summary = await fetchGoogleFitSummary({
           accessToken: token,
           startTimeMillis: range.startTimeMillis,
@@ -161,19 +180,28 @@ export function useMainPageViewModel() {
 
         console.log("📊 Summary received:", summary);
         console.log("📊 Steps:", summary.steps, "Calories:", summary.calories);
-        
+
         const nextStats = mapSummaryToStats(summary.steps, summary.calories);
         console.log("📊 Calculated stats:", nextStats);
-        
+
         setSteps(summary.steps);
         setCalories(summary.calories);
         setStats(nextStats);
-        
-        console.log("✅ State updated - Steps:", summary.steps, "Calories:", summary.calories);
-        
+
+        console.log(
+          "✅ State updated - Steps:",
+          summary.steps,
+          "Calories:",
+          summary.calories,
+        );
+
         // Включаем сохранение в Firebase
-        await saveTodayProgress(summary.steps, summary.calories, nextStats.progressPercent);
-        
+        await saveTodayProgress(
+          summary.steps,
+          summary.calories,
+          nextStats.progressPercent,
+        );
+
         console.log("✅ Stats loaded and saved successfully");
       } catch (err: any) {
         console.log("❌ Error loading stats:", err);
@@ -189,15 +217,15 @@ export function useMainPageViewModel() {
   useEffect(() => {
     console.log("🔧 Configuring GoogleSignin...");
     console.log("Web Client ID:", process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID);
-    
+
     GoogleSignin.configure({
       webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
       scopes: GOOGLE_FIT_SCOPES,
       offlineAccess: true,
     });
-    
+
     console.log("✅ GoogleSignin configured");
-    
+
     // Автоматически проверяем, есть ли сохранённая сессия
     checkSignedIn();
   }, []);
@@ -207,7 +235,7 @@ export function useMainPageViewModel() {
       // Пробуем получить текущего пользователя
       const currentUser = await GoogleSignin.getCurrentUser();
       console.log("🔍 Current user:", currentUser);
-      
+
       if (currentUser) {
         const user = currentUser as any;
         setUserInfo({
@@ -216,10 +244,10 @@ export function useMainPageViewModel() {
           photo: user.photo || undefined,
         });
         console.log("👤 User info loaded:", user.name, user.email);
-        
+
         const tokens = await GoogleSignin.getTokens();
         const token = tokens.accessToken;
-        
+
         if (token) {
           console.log("✅ User already signed in, loading data...");
           setAccessToken(token);

@@ -2,6 +2,7 @@ import { useAuth } from "@/src/context/auth-context";
 import { useServices } from "@/src/context/service-provider";
 import { useNotificationsViewModel } from "@/src/presentation/view-models/use-notifications-view-model";
 import type { AppNotification } from "@/src/domain/entities/notification";
+import { useAppTheme, type ThemeColors } from "@/src/context/theme-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -31,15 +32,6 @@ const NOTIF_COLORS: Record<string, string> = {
   reminder: "#ED7C30",
 };
 
-const COLORS = {
-  bg: "#F8EDAD",
-  cream: "#F8EDAD",
-  card: "#F8EDAD",
-  text: "#ED7C30",
-  accent: "#ED7C30",
-  muted: "#B35A22",
-};
-
 function timeAgo(dateStr: string): string {
   const now = Date.now();
   const date = new Date(dateStr).getTime();
@@ -59,6 +51,8 @@ export default function NotificationsPage() {
   const router = useRouter();
   const { firebaseUser } = useAuth();
   const { notificationRepository } = useServices();
+  const { colors } = useAppTheme();
+  const s = createStyles(colors);
 
   const {
     notifications,
@@ -86,15 +80,15 @@ export default function NotificationsPage() {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
-      <View style={styles.header}>
+    <View style={[s.root, { paddingTop: insets.top + 8 }]}>
+      <View style={s.header}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <MaterialCommunityIcons name="arrow-left" size={28} color={COLORS.text} />
+          <MaterialCommunityIcons name="arrow-left" size={28} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>УВЕДОМЛЕНИЯ</Text>
+        <Text style={s.headerTitle}>УВЕДОМЛЕНИЯ</Text>
         {unreadCount > 0 ? (
           <Pressable onPress={markAllAsRead} hitSlop={12}>
-            <MaterialCommunityIcons name="check-all" size={26} color={COLORS.accent} />
+            <MaterialCommunityIcons name="check-all" size={26} color={colors.accent} />
           </Pressable>
         ) : (
           <View style={{ width: 28 }} />
@@ -102,51 +96,51 @@ export default function NotificationsPage() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={s.content}
         showsVerticalScrollIndicator={false}
       >
         {notifications.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <MaterialCommunityIcons name="bell-off-outline" size={64} color={COLORS.muted} />
-            <Text style={styles.emptyTitle}>Нет уведомлений</Text>
-            <Text style={styles.emptyText}>Здесь будут появляться уведомления о челленджах, достижениях и друзьях</Text>
+          <View style={s.emptyCard}>
+            <MaterialCommunityIcons name="bell-off-outline" size={64} color={colors.muted} />
+            <Text style={s.emptyTitle}>Нет уведомлений</Text>
+            <Text style={s.emptyText}>Здесь будут появляться уведомления о челленджах, достижениях и друзьях</Text>
           </View>
         ) : (
-          <View style={styles.listCard}>
+          <View style={s.listCard}>
             {notifications.map((notif) => {
               const iconName = NOTIF_ICONS[notif.type] ?? "bell";
-              const iconColor = NOTIF_COLORS[notif.type] ?? COLORS.text;
+              const iconColor = NOTIF_COLORS[notif.type] ?? colors.text;
 
               return (
                 <Pressable
                   key={notif.id}
-                  style={[styles.notifRow, !notif.isRead && styles.notifUnread]}
+                  style={[s.notifRow, !notif.isRead && s.notifUnread]}
                   onPress={() => handlePress(notif)}
                   onLongPress={() => deleteNotification(notif.id)}
                 >
-                  <View style={[styles.iconCircle, { backgroundColor: iconColor + "20" }]}>
+                  <View style={[s.iconCircle, { backgroundColor: iconColor + "20" }]}>
                     <MaterialCommunityIcons name={iconName} size={22} color={iconColor} />
                   </View>
-                  <View style={styles.notifContent}>
-                    <View style={styles.notifTop}>
-                      <Text style={[styles.notifTitle, !notif.isRead && styles.notifTitleUnread]}>
+                  <View style={s.notifContent}>
+                    <View style={s.notifTop}>
+                      <Text style={[s.notifTitle, !notif.isRead && s.notifTitleUnread]}>
                         {notif.title}
                       </Text>
-                      {!notif.isRead && <View style={styles.dot} />}
+                      {!notif.isRead && <View style={s.dot} />}
                     </View>
-                    <Text style={styles.notifBody} numberOfLines={2}>
+                    <Text style={s.notifBody} numberOfLines={2}>
                       {notif.body}
                     </Text>
-                    <Text style={styles.notifTime}>{timeAgo(notif.createdAt)}</Text>
+                    <Text style={s.notifTime}>{timeAgo(notif.createdAt)}</Text>
                   </View>
                 </Pressable>
               );
             })}
 
             {unreadCount > 0 && (
-              <Pressable style={styles.markAllBtn} onPress={markAllAsRead}>
-                <MaterialCommunityIcons name="check-all" size={18} color={COLORS.accent} />
-                <Text style={styles.markAllText}>Отметить все как прочитанные</Text>
+              <Pressable style={s.markAllBtn} onPress={markAllAsRead}>
+                <MaterialCommunityIcons name="check-all" size={18} color={colors.accent} />
+                <Text style={s.markAllText}>Отметить все как прочитанные</Text>
               </Pressable>
             )}
           </View>
@@ -156,97 +150,99 @@ export default function NotificationsPage() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
-  content: { paddingHorizontal: 18, paddingBottom: 32, gap: 14 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: COLORS.cream,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    marginHorizontal: 18,
-    marginBottom: 8,
-  },
-  headerTitle: { fontSize: 28, color: COLORS.text, fontFamily: "Rimma_sans" },
-  emptyCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 24,
-    padding: 40,
-    alignItems: "center",
-    gap: 12,
-    elevation: 5,
-  },
-  emptyTitle: { fontSize: 24, color: COLORS.text, fontFamily: "Rimma_sans" },
-  emptyText: { fontSize: 14, color: COLORS.muted, textAlign: "center" },
-  listCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 24,
-    padding: 12,
-    elevation: 5,
-    gap: 4,
-  },
-  notifRow: {
-    flexDirection: "row",
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 16,
-  },
-  notifUnread: {
-    backgroundColor: COLORS.cream,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  notifContent: { flex: 1 },
-  notifTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  notifTitle: {
-    fontSize: 16,
-    color: COLORS.text,
-    fontFamily: "Rimma_sans",
-    flex: 1,
-  },
-  notifTitleUnread: {
-    color: COLORS.text,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.accent,
-  },
-  notifBody: {
-    fontSize: 13,
-    color: COLORS.muted,
-    marginTop: 2,
-  },
-  notifTime: {
-    fontSize: 11,
-    color: COLORS.muted,
-    marginTop: 4,
-  },
-  markAllBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 10,
-    marginTop: 4,
-  },
-  markAllText: {
-    fontSize: 14,
-    color: COLORS.accent,
-    fontFamily: "Rimma_sans",
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.bg },
+    content: { paddingHorizontal: 18, paddingBottom: 32, gap: 14 },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.cream,
+      borderRadius: 18,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      marginHorizontal: 18,
+      marginBottom: 8,
+    },
+    headerTitle: { fontSize: 28, color: colors.text, fontFamily: "Rimma_sans" },
+    emptyCard: {
+      backgroundColor: colors.card,
+      borderRadius: 24,
+      padding: 40,
+      alignItems: "center",
+      gap: 12,
+      elevation: 5,
+    },
+    emptyTitle: { fontSize: 24, color: colors.text, fontFamily: "Rimma_sans" },
+    emptyText: { fontSize: 14, color: colors.muted, textAlign: "center" },
+    listCard: {
+      backgroundColor: colors.card,
+      borderRadius: 24,
+      padding: 12,
+      elevation: 5,
+      gap: 4,
+    },
+    notifRow: {
+      flexDirection: "row",
+      gap: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      borderRadius: 16,
+    },
+    notifUnread: {
+      backgroundColor: colors.cream,
+    },
+    iconCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    notifContent: { flex: 1 },
+    notifTop: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    notifTitle: {
+      fontSize: 16,
+      color: colors.text,
+      fontFamily: "Rimma_sans",
+      flex: 1,
+    },
+    notifTitleUnread: {
+      color: colors.text,
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.accent,
+    },
+    notifBody: {
+      fontSize: 13,
+      color: colors.muted,
+      marginTop: 2,
+    },
+    notifTime: {
+      fontSize: 11,
+      color: colors.muted,
+      marginTop: 4,
+    },
+    markAllBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 10,
+      marginTop: 4,
+    },
+    markAllText: {
+      fontSize: 14,
+      color: colors.accent,
+      fontFamily: "Rimma_sans",
+    },
+  });
+}

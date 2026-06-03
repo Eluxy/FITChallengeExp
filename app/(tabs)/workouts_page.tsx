@@ -4,7 +4,7 @@ import { useSwipeableTab } from "@/src/utils/use-swipeable-tab";
 import { useWorkoutsViewModel, WORKOUT_LABELS, WORKOUT_ICONS, formatDuration, formatDistance, type WorkoutType, type WorkoutRecord } from "@/src/presentation/view-models/use-workouts-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -57,6 +57,17 @@ function createStyles(colors: ThemeColors) {
     emptyText: { fontSize: 16, color: colors.muted, textAlign: "center", fontFamily: "Rimma_sans" },
     typeRow: { flexDirection: "row", alignItems: "center", marginBottom: 14, gap: 12 },
     stretch: { flex: 1 },
+    filterRow: { flexDirection: "row", gap: 6, flexWrap: "wrap", marginBottom: 10 },
+    filterChip: {
+      paddingHorizontal: 12, paddingVertical: 4, borderRadius: 16,
+      backgroundColor: colors.divider,
+    },
+    filterChipActive: {
+      paddingHorizontal: 12, paddingVertical: 4, borderRadius: 16,
+      backgroundColor: colors.accent,
+    },
+    filterText: { fontSize: 13, color: colors.text, fontFamily: "Rimma_sans" },
+    filterTextActive: { fontSize: 13, color: colors.bg, fontFamily: "Rimma_sans" },
   });
 }
 
@@ -84,6 +95,7 @@ export default function WorkoutsPage() {
   const { isConnected } = useAuth();
   const { history, isLoading, loadHistory } = useWorkoutsViewModel();
   const router = useRouter();
+  const [typeFilter, setTypeFilter] = useState<"all" | WorkoutType>("all");
   const swipeHandlers = useSwipeableTab("workouts_page");
   const s = createStyles(colors);
 
@@ -144,6 +156,24 @@ export default function WorkoutsPage() {
       ) : (
         <>
           <Text style={s.sectionTitle}>ИСТОРИЯ</Text>
+          {history.length > 0 && (
+            <View style={s.filterRow}>
+              {(["all", ...WORKOUT_TYPES] as const).map((f) => {
+                const active = f === typeFilter;
+                return (
+                  <Pressable
+                    key={f}
+                    style={active ? s.filterChipActive : s.filterChip}
+                    onPress={() => setTypeFilter(f)}
+                  >
+                    <Text style={active ? s.filterTextActive : s.filterText}>
+                      {f === "all" ? "ВСЕ" : WORKOUT_LABELS[f]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
           <View style={s.historyCard}>
             {history.length === 0 ? (
               <View style={s.emptyState}>
@@ -151,9 +181,11 @@ export default function WorkoutsPage() {
                 <Text style={s.emptyText}>Тренировок пока нет</Text>
               </View>
             ) : (
-              history.map((item, index) => (
-                <HistoryItem key={item.id ?? index} item={item} colors={colors} s={s} />
-              ))
+              history
+                .filter((item) => typeFilter === "all" || item.type === typeFilter)
+                .map((item, index) => (
+                  <HistoryItem key={item.id ?? index} item={item} colors={colors} s={s} />
+                ))
             )}
           </View>
         </>

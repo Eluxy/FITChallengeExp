@@ -15,23 +15,16 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const COLORS = {
-  bg: "#EFD8A8",
-  cream: "#F7E9CC",
-  card: "#F6E8CB",
-  text: "#111111",
-  accent: "#F56735",
-  muted: "#8F8A82",
-  green: "#48B75A",
-};
+import { useAppTheme, type ThemeColors } from "@/src/context/theme-context";
 
 export default function ResetPasswordPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { colors } = useAppTheme();
   const { resetPassword, isLoading, error, clearError } = useAuth();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const s = createStyles(colors);
 
   const handleReset = async () => {
     clearError();
@@ -49,24 +42,24 @@ export default function ResetPasswordPage() {
 
   if (sent) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
-        <View style={styles.content}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-            <MaterialCommunityIcons name="arrow-left" size={28} color={COLORS.text} />
+      <View style={[s.root, { paddingTop: insets.top }]}>
+        <View style={s.content}>
+          <Pressable onPress={() => router.back()} hitSlop={12} style={s.backBtn}>
+            <MaterialCommunityIcons name="arrow-left" size={28} color={colors.text} />
           </Pressable>
-          <View style={styles.successCard}>
-            <MaterialCommunityIcons name="email-check" size={64} color={COLORS.green} />
-            <Text style={styles.successTitle}>ПИСЬМО ОТПРАВЛЕНО</Text>
-            <Text style={styles.successText}>
+          <View style={s.successCard}>
+            <MaterialCommunityIcons name="email-check" size={64} color={colors.green} />
+            <Text style={s.successTitle}>ПИСЬМО ОТПРАВЛЕНО</Text>
+            <Text style={s.successText}>
               Проверьте почту{' '}
-              <Text style={{ color: COLORS.text, fontFamily: "Rimma_sans" }}>{email}</Text>
+              <Text style={{ color: colors.text, fontFamily: "Rimma_sans" }}>{email}</Text>
               {' '}и перейдите по ссылке для восстановления пароля
             </Text>
             <Pressable
-              style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed]}
+              style={({ pressed }) => [s.primaryBtn, pressed && s.btnPressed]}
               onPress={() => router.replace("/login_page")}
             >
-              <Text style={styles.primaryBtnText}>НАЗАД К ВХОДУ</Text>
+              <Text style={s.primaryBtnText}>НАЗАД К ВХОДУ</Text>
             </Pressable>
           </View>
         </View>
@@ -76,32 +69,32 @@ export default function ResetPasswordPage() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { paddingTop: insets.top }]}
+      style={[s.root, { paddingTop: insets.top }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-          <MaterialCommunityIcons name="arrow-left" size={28} color={COLORS.text} />
+      <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <Pressable onPress={() => router.back()} hitSlop={12} style={s.backBtn}>
+          <MaterialCommunityIcons name="arrow-left" size={28} color={colors.text} />
         </Pressable>
 
-        <Text style={styles.title}>ВОССТАНОВЛЕНИЕ ПАРОЛЯ</Text>
-        <Text style={styles.subtitle}>
+        <Text style={s.title}>ВОССТАНОВЛЕНИЕ ПАРОЛЯ</Text>
+        <Text style={s.subtitle}>
           Введите email, мы отправим ссылку для сброса пароля
         </Text>
 
         {error ? (
-          <View style={styles.errorCard}>
-            <MaterialCommunityIcons name="alert-circle" size={20} color="#A4371D" />
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={s.errorCard}>
+            <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
+            <Text style={s.errorText}>{error}</Text>
           </View>
         ) : null}
 
-        <View style={styles.formCard}>
-          <Text style={styles.label}>Email</Text>
+        <View style={s.formCard}>
+          <Text style={s.label}>Email</Text>
           <TextInput
-            style={styles.input}
+            style={s.input}
             placeholder="example@mail.com"
-            placeholderTextColor={COLORS.muted}
+            placeholderTextColor={colors.muted}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -110,27 +103,27 @@ export default function ResetPasswordPage() {
           />
           <Pressable
             style={({ pressed }) => [
-              styles.primaryBtn,
-              pressed && styles.btnPressed,
-              isLoading && styles.btnDisabled,
+              s.primaryBtn,
+              pressed && s.btnPressed,
+              isLoading && s.btnDisabled,
             ]}
             onPress={handleReset}
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="#FFF" />
+              <ActivityIndicator color={colors.bg} />
             ) : (
-              <Text style={styles.primaryBtnText}>ОТПРАВИТЬ</Text>
+              <Text style={s.primaryBtnText}>ОТПРАВИТЬ</Text>
             )}
           </Pressable>
         </View>
 
         <Pressable
           onPress={() => router.push("/login_page")}
-          style={styles.backLink}
+          style={s.backLink}
         >
-          <Text style={styles.backText}>
-            Вспомнили пароль? <Text style={styles.backHighlight}>Войти</Text>
+          <Text style={s.backText}>
+            Вспомнили пароль? <Text style={s.backHighlight}>Войти</Text>
           </Text>
         </Pressable>
       </ScrollView>
@@ -138,65 +131,67 @@ export default function ResetPasswordPage() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
-  content: { paddingHorizontal: 18, paddingBottom: 32 },
-  backBtn: { width: 44, height: 44, justifyContent: "center", marginBottom: 8 },
-  title: { fontSize: 34, color: COLORS.text, fontFamily: "Rimma_sans", textAlign: "center" },
-  subtitle: { fontSize: 16, color: COLORS.muted, textAlign: "center", marginBottom: 20 },
-  errorCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FDE8E0",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    gap: 8,
-  },
-  errorText: { flex: 1, fontSize: 14, color: "#A4371D" },
-  formCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 24,
-    padding: 18,
-    gap: 8,
-    elevation: 5,
-  },
-  label: {
-    fontSize: 13,
-    color: COLORS.muted,
-    fontFamily: "Rimma_sans",
-    marginTop: 4,
-  },
-  input: {
-    backgroundColor: COLORS.cream,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: COLORS.text,
-  },
-  primaryBtn: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  primaryBtnText: { fontSize: 18, color: "#FFF", fontFamily: "Rimma_sans" },
-  btnPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
-  btnDisabled: { opacity: 0.6 },
-  successCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 24,
-    padding: 24,
-    alignItems: "center",
-    gap: 16,
-    elevation: 5,
-    marginTop: 40,
-  },
-  successTitle: { fontSize: 22, color: COLORS.text, fontFamily: "Rimma_sans" },
-  successText: { fontSize: 14, color: COLORS.muted, textAlign: "center" },
-  backLink: { marginTop: 20, alignItems: "center" },
-  backText: { fontSize: 14, color: COLORS.muted },
-  backHighlight: { color: COLORS.accent, fontFamily: "Rimma_sans" },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.bg },
+    content: { paddingHorizontal: 18, paddingBottom: 32 },
+    backBtn: { width: 44, height: 44, justifyContent: "center", marginBottom: 8 },
+    title: { fontSize: 34, color: colors.text, fontFamily: "Rimma_sans", textAlign: "center" },
+    subtitle: { fontSize: 16, color: colors.muted, textAlign: "center", marginBottom: 20 },
+    errorCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.error + "15",
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 12,
+      gap: 8,
+    },
+    errorText: { flex: 1, fontSize: 14, color: colors.error },
+    formCard: {
+      backgroundColor: colors.card,
+      borderRadius: 24,
+      padding: 18,
+      gap: 8,
+      elevation: 5,
+    },
+    label: {
+      fontSize: 13,
+      color: colors.muted,
+      fontFamily: "Rimma_sans",
+      marginTop: 4,
+    },
+    input: {
+      backgroundColor: colors.cream,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 16,
+      color: colors.text,
+    },
+    primaryBtn: {
+      backgroundColor: colors.accent,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: "center",
+      marginTop: 8,
+    },
+    primaryBtnText: { fontSize: 18, color: colors.bg, fontFamily: "Rimma_sans" },
+    btnPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+    btnDisabled: { opacity: 0.6 },
+    successCard: {
+      backgroundColor: colors.card,
+      borderRadius: 24,
+      padding: 24,
+      alignItems: "center",
+      gap: 16,
+      elevation: 5,
+      marginTop: 40,
+    },
+    successTitle: { fontSize: 22, color: colors.text, fontFamily: "Rimma_sans" },
+    successText: { fontSize: 14, color: colors.muted, textAlign: "center" },
+    backLink: { marginTop: 20, alignItems: "center" },
+    backText: { fontSize: 14, color: colors.muted },
+    backHighlight: { color: colors.accent, fontFamily: "Rimma_sans" },
+  });
+}
