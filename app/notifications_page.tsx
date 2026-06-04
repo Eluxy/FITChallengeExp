@@ -1,7 +1,8 @@
 import { useAuth } from "@/src/context/auth-context";
-import { useServices } from "@/src/context/service-provider";
-import { useNotificationsViewModel } from "@/src/presentation/view-models/use-notifications-view-model";
-import type { AppNotification } from "@/src/domain/entities/notification";
+import {
+  useNotificationsViewModel,
+  type AppNotification,
+} from "@/src/presentation/view-models/use-notifications-view-model";
 import { useAppTheme, type ThemeColors } from "@/src/context/theme-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -50,7 +51,6 @@ export default function NotificationsPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { firebaseUser } = useAuth();
-  const { notificationRepository } = useServices();
   const { colors } = useAppTheme();
   const s = createStyles(colors);
 
@@ -60,7 +60,7 @@ export default function NotificationsPage() {
     markAsRead,
     markAllAsRead,
     deleteNotification,
-  } = useNotificationsViewModel(notificationRepository, firebaseUser?.uid);
+  } = useNotificationsViewModel(firebaseUser?.uid);
 
   const handlePress = (notif: AppNotification) => {
     if (!notif.isRead) {

@@ -1,12 +1,14 @@
 import type { FriendInfo, FriendRequest, UserSearchResult } from "@/src/domain/entities/friend";
-import type { FriendRepository } from "@/src/domain/repositories/friend-repository";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
+import { useServices } from "@/src/context/service-provider";
+
+export type { UserSearchResult } from "@/src/domain/entities/friend";
 
 export function useFriendsViewModel(
-  friendRepository: FriendRepository,
   isConnected: boolean,
 ) {
+  const { friendRepository } = useServices();
   const [friends, setFriends] = useState<FriendInfo[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [searchQuery, setSearchQuery] = useState("");

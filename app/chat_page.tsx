@@ -1,4 +1,3 @@
-import { useServices } from "@/src/context/service-provider";
 import { useAppTheme, type ThemeColors } from "@/src/context/theme-context";
 import { useChatViewModel } from "@/src/presentation/view-models/use-chat-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -23,13 +22,11 @@ export default function ChatPage() {
   }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { chatRepository } = useServices();
   const { colors } = useAppTheme();
   const s = createStyles(colors);
   const flatListRef = useRef<FlatList>(null);
 
   const { messages, text, setText, isLoading, handleSend } = useChatViewModel(
-    chatRepository,
     challengeId,
   );
 

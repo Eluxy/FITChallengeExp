@@ -1,11 +1,19 @@
 import type { AppNotification } from "@/src/domain/entities/notification";
-import type { NotificationRepository, UnsubscribeCallback } from "@/src/domain/repositories/notification-repository";
+import type { UnsubscribeCallback } from "@/src/domain/repositories/notification-repository";
+import {
+  setupNotifications,
+  scheduleDailyReminder,
+  handleNotificationResponse,
+} from "@/src/services/notifications/notification-service";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useServices } from "@/src/context/service-provider";
+
+export type { AppNotification };
 
 export function useNotificationsViewModel(
-  notificationRepository: NotificationRepository,
   userId: string | null | undefined,
 ) {
+  const { notificationRepository } = useServices();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [latestNotif, setLatestNotif] = useState<AppNotification | null>(null);
@@ -68,6 +76,15 @@ export function useNotificationsViewModel(
     setLatestNotif(null);
   }, []);
 
+  const initNotifications = useCallback((onNotificationResponse?: (data: any) => void) => {
+    setupNotifications();
+    scheduleDailyReminder(20, 0);
+
+    if (onNotificationResponse) {
+      return handleNotificationResponse(onNotificationResponse);
+    }
+  }, []);
+
   return {
     notifications,
     unreadCount,
@@ -76,5 +93,6 @@ export function useNotificationsViewModel(
     markAllAsRead,
     deleteNotification,
     clearLatestNotif,
+    initNotifications,
   };
 }

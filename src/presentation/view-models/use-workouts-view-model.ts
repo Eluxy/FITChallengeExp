@@ -1,45 +1,17 @@
 import { Pedometer } from "expo-sensors";
 import * as Location from "expo-location";
-import { getFirebaseDb, getFirebaseAuth } from "@/src/config/firebase";
-import {
-  collection,
-  addDoc,
-  query,
-  where,
-  getDocs,
-  limit,
-} from "firebase/firestore";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { saveCache, getCache } from "@/src/services/storage/cache-service";
-import {
-  upsertDailyProgress,
-  fetchDailyProgressRange,
-} from "@/src/data/firebase/firestore-rest";
+import { calcCalories } from "@/src/domain/services/calorie-service";
+import { haversineDistance } from "@/src/domain/services/geo-service";
+import { WorkoutSessionService } from "@/src/domain/services/workout-session-service";
+import { workoutRepository } from "@/src/data/repositories/workout-repository";
+import { getFirebaseAuth } from "@/src/config/firebase";
+import type { WorkoutType, WorkoutRecord, WorkoutStatus } from "@/src/domain/entities/workout";
 
 const WORKOUTS_CACHE_KEY = "@fitapp_workouts_cache";
 
-export type WorkoutType = "walking" | "running" | "cycling" | "treadmill";
-
-export type WorkoutRecord = {
-  id?: string;
-  type: WorkoutType;
-  durationSeconds: number;
-  steps: number;
-  distanceMeters: number;
-  calories: number;
-  avgSpeedKmh: number;
-  dateIso: string;
-  createdAt: string;
-};
-
-export type WorkoutStatus = "idle" | "running" | "paused" | "finished";
-
-const WORKOUT_MET: Record<WorkoutType, number> = {
-  walking: 3.5,
-  running: 8.0,
-  cycling: 6.8,
-  treadmill: 7.0,
-};
+export { type WorkoutType, type WorkoutRecord, type WorkoutStatus };
 
 export const WORKOUT_LABELS: Record<WorkoutType, string> = {
   walking: "Ходьба",
@@ -54,30 +26,6 @@ export const WORKOUT_ICONS: Record<WorkoutType, string> = {
   cycling: "bike",
   treadmill: "run",
 };
-
-function calcCalories(type: WorkoutType, durationMinutes: number): number {
-  const weight = 70;
-  return Math.round(durationMinutes * WORKOUT_MET[type] * 0.0175 * weight);
-}
-
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-): number {
-  const R = 6371000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
 
 export function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -113,18 +61,21 @@ export function useWorkoutsViewModel() {
   const [lastRecord, setLastRecord] = useState<WorkoutRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const tickRef = useRef<number>(0);
+  const sessionRef = useRef<WorkoutSessionService | null>(null);
   const pedometerSubRef = useRef<{ remove: () => void } | null>(null);
   const locationSubRef = useRef<{ remove: () => void } | null>(null);
   const lastPositionRef = useRef<{ lat: number; lon: number } | null>(null);
   const typeRef = useRef<WorkoutType | null>(null);
+  const stepsRef = useRef<number>(0);
+  const distanceRef = useRef<number>(0);
 
-  const stopTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+  useEffect(() => {
+    sessionRef.current = new WorkoutSessionService((tick) => {
+      setElapsed(tick);
+    });
+    return () => {
+      sessionRef.current?.reset();
+    };
   }, []);
 
   const cleanupSensors = useCallback(() => {
@@ -142,6 +93,8 @@ export function useWorkoutsViewModel() {
     async (type: WorkoutType) => {
       cleanupSensors();
       typeRef.current = type;
+      stepsRef.current = 0;
+      distanceRef.current = 0;
       setWorkoutType(type);
       setStatus("running");
       setElapsed(0);
@@ -153,24 +106,16 @@ export function useWorkoutsViewModel() {
       setLastRecord(null);
       setError(null);
       lastPositionRef.current = null;
-      tickRef.current = 0;
 
-      stopTimer();
-      tickRef.current = 0;
-      timerRef.current = setInterval(() => {
-        tickRef.current += 1;
-        const total = tickRef.current;
-        setElapsed(total);
-
-        const minutes = total / 60;
-        setCalories(calcCalories(type, minutes));
-      }, 1000);
+      sessionRef.current?.reset();
+      sessionRef.current?.start();
 
       if (type !== "cycling") {
         try {
           const isAvailable = await Pedometer.isAvailableAsync();
           if (isAvailable) {
             const sub = Pedometer.watchStepCount((result) => {
+              stepsRef.current = result.steps;
               setSteps(result.steps);
             });
             pedometerSubRef.current = sub;
@@ -206,7 +151,8 @@ export function useWorkoutsViewModel() {
                     latitude,
                     longitude,
                   );
-                  setDistance((prev) => prev + Math.max(0, delta));
+                  distanceRef.current += Math.max(0, delta);
+                  setDistance(distanceRef.current);
                 }
                 lastPositionRef.current = { lat: latitude, lon: longitude };
               },
@@ -219,7 +165,7 @@ export function useWorkoutsViewModel() {
         }
       }
     },
-    [cleanupSensors, stopTimer],
+    [cleanupSensors],
   );
 
   useEffect(() => {
@@ -236,32 +182,28 @@ export function useWorkoutsViewModel() {
   const pauseWorkout = useCallback(() => {
     if (status !== "running") return;
     setStatus("paused");
-    stopTimer();
-  }, [status, stopTimer]);
+    sessionRef.current?.pause();
+  }, [status]);
 
   const resumeWorkout = useCallback(() => {
     if (status !== "paused" || !typeRef.current) return;
     setStatus("running");
-    timerRef.current = setInterval(() => {
-      tickRef.current += 1;
-      const total = tickRef.current;
-      setElapsed(total);
-    }, 1000);
+    sessionRef.current?.resume();
   }, [status]);
 
   const stopWorkout = useCallback(async () => {
     if (!typeRef.current) return;
-    stopTimer();
+    sessionRef.current?.stop();
     cleanupSensors();
 
-    const totalSeconds = tickRef.current;
+    const totalSeconds = sessionRef.current?.elapsed ?? 0;
     const totalMinutes = totalSeconds / 60;
     const finalCalories = calcCalories(typeRef.current, totalMinutes);
     const finalSpeed =
       distance > 0 && totalSeconds > 0
         ? (distance / 1000) / (totalSeconds / 3600)
         : 0;
-    const finalSteps = typeRef.current === "cycling" ? 0 : steps;
+    const finalSteps = typeRef.current === "cycling" ? 0 : stepsRef.current;
 
     setCalories(finalCalories);
     setAvgSpeed(Math.round(finalSpeed * 10) / 10);
@@ -278,16 +220,11 @@ export function useWorkoutsViewModel() {
     };
 
     let savedToFirestore = false;
-
     try {
       const auth = getFirebaseAuth();
       const user = auth.currentUser;
       if (user) {
-        const db = getFirebaseDb();
-        await addDoc(collection(db, "workouts"), {
-          userId: user.uid,
-          ...record,
-        });
+        await workoutRepository.saveWorkout(user.uid, record);
         savedToFirestore = true;
       }
     } catch {
@@ -313,9 +250,8 @@ export function useWorkoutsViewModel() {
       setStatus("idle");
       setWorkoutType(null);
       typeRef.current = null;
-      tickRef.current = 0;
     }, 3000);
-  }, [stopTimer, cleanupSensors, steps, distance]);
+  }, [cleanupSensors, distance]);
 
   const loadHistory = useCallback(async () => {
     setIsLoading(true);
@@ -326,22 +262,7 @@ export function useWorkoutsViewModel() {
         setIsLoading(false);
         return;
       }
-      const db = getFirebaseDb();
-      const q = query(
-        collection(db, "workouts"),
-        where("userId", "==", user.uid),
-        limit(30),
-      );
-      const snapshot = await getDocs(q);
-      const records: WorkoutRecord[] = snapshot.docs
-        .map((d) => ({
-          id: d.id,
-          ...(d.data() as Omit<WorkoutRecord, "id">),
-        }))
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
+      const records = await workoutRepository.getWorkouts(user.uid);
       setHistory(records);
       await saveCache(WORKOUTS_CACHE_KEY, records);
     } catch {
@@ -354,10 +275,10 @@ export function useWorkoutsViewModel() {
 
   useEffect(() => {
     return () => {
-      stopTimer();
+      sessionRef.current?.reset();
       cleanupSensors();
     };
-  }, [stopTimer, cleanupSensors]);
+  }, [cleanupSensors]);
 
   return {
     workoutType,

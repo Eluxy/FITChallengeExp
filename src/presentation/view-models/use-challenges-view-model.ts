@@ -1,14 +1,15 @@
 import type { Challenge, ChallengeType } from "@/src/domain/entities/challenge";
-import type { ChallengeRepository } from "@/src/domain/repositories/challenge-repository";
 import { useEffect, useRef, useState } from "react";
+import { useServices } from "@/src/context/service-provider";
 
-export type ChallengesTab = "active" | "daily" | "completed";
+export type { Challenge, ChallengeType } from "@/src/domain/entities/challenge";
+export { getChallengeUnit, getChallengeIcon } from "@/src/domain/entities/challenge";
 
 export function useChallengesViewModel(
-  challengeRepository: ChallengeRepository,
   userId: string | null | undefined,
   isConnected: boolean,
 ) {
+  const { challengeRepository } = useServices();
   const [activeChallenges, setActiveChallenges] = useState<Challenge[]>([]);
   const [dailyChallenges, setDailyChallenges] = useState<Challenge[]>([]);
   const [completedChallenges, setCompletedChallenges] = useState<Challenge[]>([]);
