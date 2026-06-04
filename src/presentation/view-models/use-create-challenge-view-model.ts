@@ -1,17 +1,18 @@
 import type { ChallengeType } from "@/src/domain/entities/challenge";
-import type { ChallengeRepository } from "@/src/domain/repositories/challenge-repository";
-import type { FriendRepository } from "@/src/domain/repositories/friend-repository";
+
+export type { ChallengeType } from "@/src/domain/entities/challenge";
+export { getChallengeUnit, getChallengeIcon } from "@/src/domain/entities/challenge";
 import type { FriendInfo } from "@/src/domain/entities/friend";
 import { useCallback, useEffect, useState } from "react";
+import { useServices } from "@/src/context/service-provider";
 
 export function useCreateChallengeViewModel(
-  challengeRepository: ChallengeRepository,
-  friendRepository: FriendRepository,
   currentUser: { uid: string; displayName?: string | null; email?: string | null; photoURL?: string | null } | null,
   onSuccess?: (invitedCount: number) => void,
   initialFriendId?: string,
   initialFriendName?: string,
 ) {
+  const { challengeRepository, friendRepository } = useServices();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<ChallengeType>("steps");

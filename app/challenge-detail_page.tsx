@@ -1,9 +1,11 @@
-import { useServices } from "@/src/context/service-provider";
 import { useAuth } from "@/src/context/auth-context";
 import { useAppTheme, type ThemeColors } from "@/src/context/theme-context";
-import type { Challenge } from "@/src/domain/entities/challenge";
-import { getChallengeUnit, getChallengeIcon } from "@/src/domain/entities/challenge";
-import { useChallengeDetailViewModel } from "@/src/presentation/view-models/use-challenge-detail-view-model";
+import {
+  useChallengeDetailViewModel,
+  type Challenge,
+  getChallengeUnit,
+  getChallengeIcon,
+} from "@/src/presentation/view-models/use-challenge-detail-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -13,7 +15,6 @@ export default function ChallengeDetailPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { challengeRepository } = useServices();
   const { firebaseUser } = useAuth();
   const { colors } = useAppTheme();
   const s = createStyles(colors);
@@ -25,8 +26,9 @@ export default function ChallengeDetailPage() {
     isJoining,
     error,
     joinChallenge,
+    deleteChallenge,
     refresh,
-  } = useChallengeDetailViewModel(challengeRepository, id);
+  } = useChallengeDetailViewModel(id);
 
   const handleDelete = () => {
     if (!challenge) return;
@@ -39,12 +41,8 @@ export default function ChallengeDetailPage() {
           text: "Удалить",
           style: "destructive",
           onPress: async () => {
-            try {
-              await challengeRepository.deleteChallenge(challenge.id);
-              router.back();
-            } catch (err: any) {
-              Alert.alert("Ошибка", err.message);
-            }
+            await deleteChallenge(challenge.id);
+            router.back();
           },
         },
       ],

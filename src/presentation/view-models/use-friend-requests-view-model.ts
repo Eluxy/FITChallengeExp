@@ -1,13 +1,13 @@
 import type { FriendRequest } from "@/src/domain/entities/friend";
-import type { FriendRepository } from "@/src/domain/repositories/friend-repository";
+import { sendPushToUser } from "@/src/services/notifications/notification-service";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
+import { useServices } from "@/src/context/service-provider";
 
 export function useFriendRequestsViewModel(
-  friendRepository: FriendRepository,
   isConnected: boolean,
-  onSendPush?: (userId: string, title: string, body: string) => void,
 ) {
+  const { friendRepository } = useServices();
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -34,14 +34,14 @@ export function useFriendRequestsViewModel(
       const result = await friendRepository.acceptFriendRequest(id);
       if (result.success) {
         if (req?.fromUserId) {
-          onSendPush?.(req.fromUserId, "Заявка принята", "Пользователь принял вашу заявку в друзья!");
+          sendPushToUser(req.fromUserId, "Заявка принята", "Пользователь принял вашу заявку в друзья!", { type: "friend_accept" });
         }
         await loadRequests();
       }
     } catch {
       // ignore
     }
-  }, [friendRepository, loadRequests, onSendPush]);
+  }, [friendRepository, loadRequests]);
 
   const handleReject = useCallback(async (id: string) => {
     try {

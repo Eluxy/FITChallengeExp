@@ -1,12 +1,16 @@
 import type { Challenge } from "@/src/domain/entities/challenge";
-import type { ChallengeRepository } from "@/src/domain/repositories/challenge-repository";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
+import { Alert } from "react-native";
+import { useServices } from "@/src/context/service-provider";
+
+export type { Challenge } from "@/src/domain/entities/challenge";
+export { getChallengeUnit, getChallengeIcon } from "@/src/domain/entities/challenge";
 
 export function useChallengeDetailViewModel(
-  challengeRepository: ChallengeRepository,
   challengeId: string | undefined,
 ) {
+  const { challengeRepository } = useServices();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
@@ -45,12 +49,22 @@ export function useChallengeDetailViewModel(
     }
   };
 
+  const deleteChallenge = async (challengeIdToDelete: string): Promise<void> => {
+    try {
+      await challengeRepository.deleteChallenge(challengeIdToDelete);
+    } catch (err: any) {
+      Alert.alert("Ошибка", err.message);
+      throw err;
+    }
+  };
+
   return {
     challenge,
     isLoading,
     isJoining,
     error,
     joinChallenge,
+    deleteChallenge,
     refresh: loadChallenge,
   };
 }

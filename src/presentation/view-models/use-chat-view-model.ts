@@ -1,11 +1,11 @@
 import type { ChatMessage } from "@/src/domain/entities/chat";
-import type { ChatRepository } from "@/src/domain/repositories/chat-repository";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useServices } from "@/src/context/service-provider";
 
 export function useChatViewModel(
-  chatRepository: ChatRepository,
   challengeId: string | undefined,
 ) {
+  const { chatRepository } = useServices();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   const [isLoading, setIsLoading] = useState(true);

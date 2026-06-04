@@ -1,5 +1,4 @@
 import { useAuth } from "@/src/context/auth-context";
-import { useServices } from "@/src/context/service-provider";
 import { useNotificationsViewModel } from "@/src/presentation/view-models/use-notifications-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -13,11 +12,10 @@ type Props = {
 export function NotificationBell({ color: _color }: Props) {
   const router = useRouter();
   const { firebaseUser } = useAuth();
-  const { notificationRepository } = useServices();
   const { colors } = useAppTheme();
   const color = _color ?? colors.text;
   const s = createStyles(colors);
-  const { unreadCount } = useNotificationsViewModel(notificationRepository, firebaseUser?.uid);
+  const { unreadCount } = useNotificationsViewModel(firebaseUser?.uid);
 
   return (
     <Pressable

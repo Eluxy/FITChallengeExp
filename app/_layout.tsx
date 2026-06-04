@@ -12,16 +12,10 @@ import "react-native-reanimated";
 
 import { AppThemeProvider } from "@/src/context/theme-context";
 import { AuthProvider, useAuth } from "@/src/context/auth-context";
-import { ServiceProvider, useServices } from "@/src/context/service-provider";
+import { ServiceProvider } from "@/src/context/service-provider";
 import { useThemeInitializer } from "@/src/presentation/view-models/use-theme-initializer";
-import { useNotificationsViewModel } from "@/src/presentation/view-models/use-notifications-view-model";
-import type { AppNotification } from "@/src/domain/entities/notification";
+import { useNotificationsViewModel, type AppNotification } from "@/src/presentation/view-models/use-notifications-view-model";
 import { InAppToast } from "@/components/in-app-toast";
-import {
-  setupNotifications,
-  scheduleDailyReminder,
-  handleNotificationResponse,
-} from "@/src/services/notifications/notification-service";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -30,9 +24,11 @@ export const unstable_settings = {
 function ToastManager() {
   const router = useRouter();
   const { firebaseUser } = useAuth();
-  const { notificationRepository } = useServices();
-  const { latestNotif, clearLatestNotif } = useNotificationsViewModel(
-    notificationRepository,
+  const {
+    latestNotif,
+    clearLatestNotif,
+    initNotifications,
+  } = useNotificationsViewModel(
     firebaseUser?.uid,
   );
 
@@ -49,6 +45,20 @@ function ToastManager() {
     }
   };
 
+  useEffect(() => {
+    const unsubNotif = initNotifications((data) => {
+      if (!data) return;
+      if (data.challengeId) {
+        router.push(`/challenge-detail_page?id=${data.challengeId}`);
+      } else if (data.achievementId) {
+        router.push("/achievements_page");
+      } else {
+        router.push("/notifications_page");
+      }
+    });
+    return () => unsubNotif?.();
+  }, []);
+
   return (
     <View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 9999 }}>
       <InAppToast
@@ -62,28 +72,6 @@ function ToastManager() {
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const themeOverride = useThemeInitializer();
-  const router = useRouter();
-
-  useEffect(() => {
-    setupNotifications();
-    scheduleDailyReminder(20, 0);
-
-    const unsubNotif = handleNotificationResponse((data) => {
-      if (!data) return;
-      if (data.challengeId) {
-        router.push(`/challenge-detail_page?id=${data.challengeId}`);
-      } else if (data.achievementId) {
-        router.push("/achievements_page");
-      } else {
-        router.push("/notifications_page");
-      }
-    });
-
-    return () => {
-      unsubNotif();
-    };
-  }, []);
-
   const effectiveTheme = themeOverride ?? Appearance.getColorScheme();
 
   return (

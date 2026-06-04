@@ -1,8 +1,9 @@
 import { useAuth } from "@/src/context/auth-context";
-import { useServices } from "@/src/context/service-provider";
 import { useAppTheme, type ThemeColors } from "@/src/context/theme-context";
-import { useFriendsViewModel } from "@/src/presentation/view-models/use-friends-view-model";
-import type { UserSearchResult } from "@/src/domain/entities/friend";
+import {
+  useFriendsViewModel,
+  type UserSearchResult,
+} from "@/src/presentation/view-models/use-friends-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
@@ -21,7 +22,6 @@ export default function FriendsPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { isConnected } = useAuth();
-  const { friendRepository } = useServices();
   const { colors } = useAppTheme();
   const s = createStyles(colors);
 
@@ -38,7 +38,7 @@ export default function FriendsPage() {
     handleAcceptRequest,
     handleRejectRequest,
     handleRemoveFriend,
-  } = useFriendsViewModel(friendRepository, isConnected);
+  } = useFriendsViewModel(isConnected);
 
   const handleRemoveFriendWithConfirm = (friendUserId: string, friendName: string) => {
     Alert.alert(

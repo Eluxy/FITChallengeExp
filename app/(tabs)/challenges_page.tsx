@@ -1,14 +1,14 @@
 import { useAppTheme, type ThemeColors } from "@/src/context/theme-context";
 import { useAuth } from "@/src/context/auth-context";
-import { useServices } from "@/src/context/service-provider";
 import { useGoogleFitData } from "@/src/presentation/view-models/use-google-fit-data";
 import { useSwipeableTab } from "@/src/utils/use-swipeable-tab";
-import { useChallengesViewModel } from "@/src/presentation/view-models/use-challenges-view-model";
-import type { Challenge, ChallengeType } from "@/src/domain/entities/challenge";
 import {
+  useChallengesViewModel,
+  type Challenge,
+  type ChallengeType,
   getChallengeUnit,
   getChallengeIcon,
-} from "@/src/domain/entities/challenge";
+} from "@/src/presentation/view-models/use-challenges-view-model";
 import { NotificationBell } from "@/components/notification-bell";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -43,7 +43,6 @@ export default function ChallengesPage() {
   const router = useRouter();
   const { isConnected, firebaseUser } = useAuth();
   const currentUserId = firebaseUser?.uid;
-  const { challengeRepository } = useServices();
   useGoogleFitData();
   const [activeTab, setActiveTab] = useState<Tab>("active");
   const swipeHandlers = useSwipeableTab("challenges_page");
@@ -58,7 +57,7 @@ export default function ChallengesPage() {
     refresh,
     createDailyChallenge,
     deleteChallenge,
-  } = useChallengesViewModel(challengeRepository, currentUserId, isConnected);
+  } = useChallengesViewModel(currentUserId, isConnected);
 
   const [showDailyForm, setShowDailyForm] = useState(false);
   const [dailyType, setDailyType] = useState<ChallengeType>("steps");

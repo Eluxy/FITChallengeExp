@@ -1,8 +1,6 @@
 import { useAuth } from "@/src/context/auth-context";
-import { useServices } from "@/src/context/service-provider";
 import { useAppTheme, type ThemeColors } from "@/src/context/theme-context";
 import { useFriendRequestsViewModel } from "@/src/presentation/view-models/use-friend-requests-view-model";
-import { sendPushToUser } from "@/src/services/notifications/notification-service";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Alert } from "react-native";
@@ -12,17 +10,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function FriendRequestsPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { isConnected, userInfo } = useAuth();
-  const { friendRepository } = useServices();
+  const { isConnected } = useAuth();
   const { colors } = useAppTheme();
   const s = createStyles(colors);
 
   const { requests, isLoading, handleAccept, handleReject } = useFriendRequestsViewModel(
-    friendRepository,
     isConnected,
-    (userId, title, body) => {
-      sendPushToUser(userId, title, `${userInfo?.name || "Пользователь"} ${body}`, { type: "friend_accept" });
-    },
   );
 
   const handleAcceptWithCheck = (id: string, req?: any) => {

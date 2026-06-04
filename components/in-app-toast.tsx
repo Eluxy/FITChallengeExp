@@ -1,4 +1,4 @@
-import type { AppNotification } from "@/src/domain/entities/notification";
+import type { AppNotification } from "@/src/presentation/view-models/use-notifications-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";

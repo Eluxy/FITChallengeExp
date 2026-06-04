@@ -1,9 +1,11 @@
-import { useServices } from "@/src/context/service-provider";
 import { useAuth } from "@/src/context/auth-context";
 import { useAppTheme, type ThemeColors } from "@/src/context/theme-context";
-import type { ChallengeType } from "@/src/domain/entities/challenge";
-import { getChallengeUnit, getChallengeIcon } from "@/src/domain/entities/challenge";
-import { useCreateChallengeViewModel } from "@/src/presentation/view-models/use-create-challenge-view-model";
+import {
+  useCreateChallengeViewModel,
+  type ChallengeType,
+  getChallengeUnit,
+  getChallengeIcon,
+} from "@/src/presentation/view-models/use-create-challenge-view-model";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useEffect } from "react";
@@ -40,14 +42,11 @@ export default function CreateChallengePage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { friendId, friendName } = useLocalSearchParams<{ friendId?: string; friendName?: string }>();
-  const { challengeRepository, friendRepository } = useServices();
   const { firebaseUser } = useAuth();
   const { colors } = useAppTheme();
   const s = createStyles(colors);
 
   const vm = useCreateChallengeViewModel(
-    challengeRepository,
-    friendRepository,
     firebaseUser,
     (invitedCount) => {
       if (invitedCount > 0) {
